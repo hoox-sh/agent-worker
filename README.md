@@ -3,7 +3,7 @@
 <div align="center">
 
 [![Language](https://img.shields.io/badge/Language-TypeScript-blue.svg)](https://www.typescriptlang.org/)
-[![Platform](https://img.shields.io/badge/Platform-Cloudflare%20Edge%20Workers-orange?logo=cloudflare)](https://workers.cloudflare.com/)
+[![Platform](https://img.shields.io/badge/Platform-Cloudflare®%20Edge%20Workers-orange?logo=cloudflare)](https://workers.cloudflare.com/)
 
 </div>
 
@@ -21,7 +21,7 @@
 
 ## 🏗️ Architecture & Flow
 
-1. **Trigger:** Cloudflare Cron triggers the worker.
+1. **Trigger:** Cloudflare® Cron triggers the worker.
 2. **State Sync:** Fetches active `OPEN` positions via the `d1-worker`.
 3. **Market Pulse:** Pings public exchange APIs for the latest `markPrice`.
 4. **Risk Evaluation:** Cross-references current price with KV-stored watermarks and global drawdown limits.
@@ -60,3 +60,8 @@ The `agent-worker` requires the following bindings to operate:
 - `D1_SERVICE`: To fetch open positions and system logs.
 - `TRADE_SERVICE`: To execute trailing stops and profit-taking.
 - `TELEGRAM_SERVICE`: To broadcast AI summaries and emergency alerts.
+
+
+---
+
+*Cloudflare® and the Cloudflare logo are trademarks and/or registered trademarks of Cloudflare, Inc. in the United States and other jurisdictions.*
