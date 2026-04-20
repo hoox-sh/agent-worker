@@ -1,0 +1,30 @@
+name = "agent-worker"
+main = "src/index.ts"
+compatibility_date = "2024-04-05"
+compatibility_flags = ["nodejs_compat"]
+
+[triggers]
+crons = ["*/5 * * * *"]
+
+[vars]
+# Add environment variables here
+
+[[services]]
+binding = "D1_SERVICE"
+service = "d1-worker"
+
+[[services]]
+binding = "TRADE_SERVICE"
+service = "trade-worker"
+
+[[services]]
+binding = "TELEGRAM_SERVICE"
+service = "telegram-worker"
+
+[[kv_namespaces]]
+binding = "CONFIG_KV"
+id = "mock-id-for-dev"
+preview_id = "mock-id-for-dev"
+
+[ai]
+binding = "AI"
