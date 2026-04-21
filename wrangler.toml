@@ -7,7 +7,6 @@ compatibility_flags = ["nodejs_compat"]
 crons = ["*/5 * * * *"]
 
 [vars]
-# Add environment variables here
 
 [[services]]
 binding = "D1_SERVICE"

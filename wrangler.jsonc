@@ -23,8 +23,7 @@
   "kv_namespaces": [
     {
       "binding": "CONFIG_KV",
-      "id": "mock-id-for-dev",
-      "preview_id": "mock-id-for-dev"
+      "id": "c5917667a21745e390ff969f32b1847d"
     }
   ],
   "ai": {

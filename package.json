@@ -2,10 +2,13 @@
   "name": "agent-worker",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "deploy": "wrangler deploy",
     "dev": "wrangler dev",
-    "start": "wrangler dev"
+    "start": "wrangler dev",
+    "test": "bun test",
+    "test:watch": "bun test --watch"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260420.1",
