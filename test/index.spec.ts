@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "bun:test";
 import worker from "../src/index";
 
 describe("Agent Worker", () => {
+	const TEST_KEY = "test-key";
 	let mockEnv: any;
 	let mockCtx: any;
 
@@ -28,7 +29,8 @@ describe("Agent Worker", () => {
 			},
 			TELEGRAM_SERVICE: {
 				fetch: vi.fn().mockResolvedValue({ ok: true })
-			}
+			},
+			AGENT_INTERNAL_KEY: { get: vi.fn().mockResolvedValue(TEST_KEY) }
 		};
 		mockCtx = { waitUntil: (p: Promise<any>) => p };
 	});
@@ -43,8 +45,9 @@ describe("Agent Worker", () => {
 
 	describe("POST /agent/risk-override", () => {
 		it("applies risk override", async () => {
-			const request = new Request("http://example.com/agent/risk-override", { 
+			const request = new Request("http://example.com/agent/risk-override", {
 				method: "POST",
+				headers: { "X-Internal-Auth-Key": TEST_KEY },
 				body: JSON.stringify({ trailingStopPercent: 0.03 })
 			});
 			const response = await worker.fetch(request, mockEnv, mockCtx);
@@ -57,7 +60,7 @@ describe("Agent Worker", () => {
 
 	describe("GET /agent/status", () => {
 		it("returns health status with config", async () => {
-			const request = new Request("http://example.com/agent/status", { method: "GET" });
+			const request = new Request("http://example.com/agent/status", { method: "GET", headers: { "X-Internal-Auth-Key": TEST_KEY } });
 			const response = await worker.fetch(request, mockEnv, mockCtx);
 			expect(response.status).toBe(200);
 			const json: any = await response.json();
@@ -70,7 +73,7 @@ describe("Agent Worker", () => {
 
 	describe("GET /agent/config", () => {
 		it("returns current agent configuration", async () => {
-			const request = new Request("http://example.com/agent/config", { method: "GET" });
+			const request = new Request("http://example.com/agent/config", { method: "GET", headers: { "X-Internal-Auth-Key": TEST_KEY } });
 			const response = await worker.fetch(request, mockEnv, mockCtx);
 			expect(response.status).toBe(200);
 			const json: any = await response.json();
@@ -96,7 +99,8 @@ describe("Agent Worker", () => {
 
 			const request = new Request("http://example.com/agent/config", {
 				method: "POST",
-				body: JSON.stringify({ 
+				headers: { "X-Internal-Auth-Key": TEST_KEY },
+				body: JSON.stringify({
 					defaultProvider: 'openai',
 					fallbackChain: ['openai', 'workers-ai']
 				})
@@ -110,7 +114,7 @@ describe("Agent Worker", () => {
 
 	describe("GET /agent/models", () => {
 		it("returns all available models", async () => {
-			const request = new Request("http://example.com/agent/models", { method: "GET" });
+			const request = new Request("http://example.com/agent/models", { method: "GET", headers: { "X-Internal-Auth-Key": TEST_KEY } });
 			const response = await worker.fetch(request, mockEnv, mockCtx);
 			expect(response.status).toBe(200);
 			const json: any = await response.json();
@@ -124,7 +128,8 @@ describe("Agent Worker", () => {
 		it("tests Workers AI model", async () => {
 			const request = new Request("http://example.com/agent/test-model", {
 				method: "POST",
-				body: JSON.stringify({ 
+				headers: { "X-Internal-Auth-Key": TEST_KEY },
+				body: JSON.stringify({
 					prompt: "Say hello",
 					model: "@cf/meta/llama-3.1-8b-instruct"
 				})
@@ -152,7 +157,8 @@ describe("Agent Worker", () => {
 		it("sends chat request", async () => {
 			const request = new Request("http://example.com/agent/chat", {
 				method: "POST",
-				body: JSON.stringify({ 
+				headers: { "X-Internal-Auth-Key": TEST_KEY },
+				body: JSON.stringify({
 					prompt: "What is Bitcoin?"
 				})
 			});
@@ -167,7 +173,8 @@ describe("Agent Worker", () => {
 		it("returns embedding response", async () => {
 			const request = new Request("http://example.com/agent/embedding", {
 				method: "POST",
-				body: JSON.stringify({ 
+				headers: { "X-Internal-Auth-Key": TEST_KEY },
+				body: JSON.stringify({
 					text: "Bitcoin price analysis"
 				})
 			});
@@ -203,6 +210,7 @@ describe("Agent Worker", () => {
 });
 
 describe("POST /agent/housekeeping", () => {
+	const TEST_KEY = "test-key";
 	let mockEnv: any;
 	let mockCtx: any;
 
@@ -223,14 +231,16 @@ describe("POST /agent/housekeeping", () => {
 			},
 			TELEGRAM_SERVICE: {
 				fetch: vi.fn().mockResolvedValue({ ok: true })
-			}
+			},
+			AGENT_INTERNAL_KEY: { get: vi.fn().mockResolvedValue("test-key") }
 		};
 		mockCtx = { waitUntil: (p: Promise<any>) => p };
 	});
 
 	it("returns housekeeping results", async () => {
-		const request = new Request("http://example.com/agent/housekeeping", { 
-			method: "POST"
+		const request = new Request("http://example.com/agent/housekeeping", {
+			method: "POST",
+			headers: { "X-Internal-Auth-Key": TEST_KEY }
 		});
 		const response = await worker.fetch(request, mockEnv, mockCtx);
 		expect(response.status).toBe(200);
@@ -240,8 +250,9 @@ describe("POST /agent/housekeeping", () => {
 	});
 
 	it("checks CONFIG_KV", async () => {
-		const request = new Request("http://example.com/agent/housekeeping", { 
-			method: "POST"
+		const request = new Request("http://example.com/agent/housekeeping", {
+			method: "POST",
+			headers: { "X-Internal-Auth-Key": TEST_KEY }
 		});
 		const response = await worker.fetch(request, mockEnv, mockCtx);
 		const json: any = await response.json();
@@ -249,8 +260,9 @@ describe("POST /agent/housekeeping", () => {
 	});
 
 	it("checks D1_SERVICE", async () => {
-		const request = new Request("http://example.com/agent/housekeeping", { 
-			method: "POST"
+		const request = new Request("http://example.com/agent/housekeeping", {
+			method: "POST",
+			headers: { "X-Internal-Auth-Key": TEST_KEY }
 		});
 		const response = await worker.fetch(request, mockEnv, mockCtx);
 		const json: any = await response.json();
@@ -258,8 +270,9 @@ describe("POST /agent/housekeeping", () => {
 	});
 
 	it("checks TRADE_SERVICE", async () => {
-		const request = new Request("http://example.com/agent/housekeeping", { 
-			method: "POST"
+		const request = new Request("http://example.com/agent/housekeeping", {
+			method: "POST",
+			headers: { "X-Internal-Auth-Key": TEST_KEY }
 		});
 		const response = await worker.fetch(request, mockEnv, mockCtx);
 		const json: any = await response.json();
@@ -267,8 +280,9 @@ describe("POST /agent/housekeeping", () => {
 	});
 
 	it("checks TELEGRAM_SERVICE", async () => {
-		const request = new Request("http://example.com/agent/housekeeping", { 
-			method: "POST"
+		const request = new Request("http://example.com/agent/housekeeping", {
+			method: "POST",
+			headers: { "X-Internal-Auth-Key": TEST_KEY }
 		});
 		const response = await worker.fetch(request, mockEnv, mockCtx);
 		const json: any = await response.json();
@@ -276,8 +290,9 @@ describe("POST /agent/housekeeping", () => {
 	});
 
 	it("stores results to KV", async () => {
-		const request = new Request("http://example.com/agent/housekeeping", { 
-			method: "POST"
+		const request = new Request("http://example.com/agent/housekeeping", {
+			method: "POST",
+			headers: { "X-Internal-Auth-Key": TEST_KEY }
 		});
 		await worker.fetch(request, mockEnv, mockCtx);
 		expect(mockEnv.CONFIG_KV.put).toHaveBeenCalledWith(
@@ -288,8 +303,9 @@ describe("POST /agent/housekeeping", () => {
 
 	it("handles service errors gracefully", async () => {
 		mockEnv.D1_SERVICE.fetch = vi.fn().mockRejectedValue(new Error("Service down"));
-		const request = new Request("http://example.com/agent/housekeeping", { 
-			method: "POST"
+		const request = new Request("http://example.com/agent/housekeeping", {
+			method: "POST",
+			headers: { "X-Internal-Auth-Key": TEST_KEY }
 		});
 		const response = await worker.fetch(request, mockEnv, mockCtx);
 		expect(response.status).toBe(200);

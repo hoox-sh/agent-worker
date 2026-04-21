@@ -3,12 +3,17 @@ import { ProviderManager, createProviderManager } from './providers';
 import { AIRequest } from './types';
 import { ALL_MODELS, getModelInfo } from './models';
 
+interface SecretBinding {
+  get: () => Promise<string | null>;
+}
+
 export interface Env {
   D1_SERVICE: Fetcher;
   TRADE_SERVICE: Fetcher;
   TELEGRAM_SERVICE: Fetcher;
   CONFIG_KV: KVNamespace;
   AI: any;
+  AGENT_INTERNAL_KEY?: SecretBinding;
 }
 
 let providerManager: ProviderManager | null = null;
@@ -18,6 +23,18 @@ function getProviderManager(env: Env): ProviderManager {
     providerManager = createProviderManager(env);
   }
   return providerManager;
+}
+
+async function checkInternalAuth(request: Request, env: Env): Promise<{ authorized: boolean; error?: string }> {
+  const internalKey = await env.AGENT_INTERNAL_KEY?.get();
+  if (!internalKey) {
+    return { authorized: false, error: "AGENT_INTERNAL_KEY not configured" };
+  }
+  const providedKey = request.headers.get("X-Internal-Auth-Key");
+  if (!providedKey || providedKey !== internalKey) {
+    return { authorized: false, error: "Unauthorized" };
+  }
+  return { authorized: true };
 }
 
 async function fetchMarkPrice(exchange: string, symbol: string): Promise<number | null> {
@@ -61,6 +78,17 @@ export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     const pm = getProviderManager(env);
+
+    // Protect admin/control endpoints with internal auth
+    if (url.pathname.startsWith('/agent/') && url.pathname !== '/agent/health') {
+      const auth = await checkInternalAuth(request, env);
+      if (!auth.authorized) {
+        return new Response(JSON.stringify({ success: false, error: auth.error }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+    }
 
     if (request.method === 'POST' && url.pathname === '/agent/housekeeping') {
       try {
