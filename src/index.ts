@@ -62,6 +62,62 @@ export default {
     const url = new URL(request.url);
     const pm = getProviderManager(env);
 
+    if (request.method === 'POST' && url.pathname === '/agent/housekeeping') {
+      try {
+        const results: any = {
+          timestamp: new Date().toISOString(),
+          checks: [] as any[],
+        };
+
+        // Check CONFIG_KV status
+        const kvTest = await env.CONFIG_KV.get('health_check');
+        results.checks.push({ service: 'CONFIG_KV', status: 'ok', detail: kvTest ? 'readable' : 'empty' });
+
+        // Check D1 service
+        if (env.D1_SERVICE) {
+          try {
+            const d1Res = await env.D1_SERVICE.fetch('https://d1-worker.cryptolinx.workers.dev/health');
+            results.checks.push({ service: 'D1_SERVICE', status: d1Res.ok ? 'ok' : 'error', detail: d1Res.status });
+          } catch (e) {
+            results.checks.push({ service: 'D1_SERVICE', status: 'error', detail: String(e) });
+          }
+        }
+
+        // Check Trade service
+        if (env.TRADE_SERVICE) {
+          try {
+            const tradeRes = await env.TRADE_SERVICE.fetch('https://trade-worker.cryptolinx.workers.dev/health');
+            results.checks.push({ service: 'TRADE_SERVICE', status: tradeRes.ok ? 'ok' : 'error', detail: tradeRes.status });
+          } catch (e) {
+            results.checks.push({ service: 'TRADE_SERVICE', status: 'error', detail: String(e) });
+          }
+        }
+
+        // Check Telegram service
+        if (env.TELEGRAM_SERVICE) {
+          try {
+            const tgRes = await env.TELEGRAM_SERVICE.fetch('https://telegram-worker.cryptolinx.workers.dev/health');
+            results.checks.push({ service: 'TELEGRAM_SERVICE', status: tgRes.ok ? 'ok' : 'error', detail: tgRes.status });
+          } catch (e) {
+            results.checks.push({ service: 'TELEGRAM_SERVICE', status: 'error', detail: String(e) });
+          }
+        }
+
+        // Log results to KV
+        await env.CONFIG_KV.put('housekeeping:last_check', JSON.stringify(results));
+
+        return new Response(JSON.stringify(results), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      } catch (error) {
+        return new Response(JSON.stringify({ success: false, error: String(error) }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
     if (request.method === 'POST' && url.pathname === '/agent/risk-override') {
       const body: any = await request.json();
       if (body.trailingStopPercent !== undefined) {
@@ -201,6 +257,7 @@ export default {
 
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
     console.log("Agent Worker cron triggered at:", event.cron, event.scheduledTime);
+    ctx.waitUntil(runHousekeeping(env));
     ctx.waitUntil(this.processRoutine(env));
   },
 
@@ -339,6 +396,50 @@ export default {
     }
   }
 };
+
+async function runHousekeeping(env: Env): Promise<void> {
+  try {
+    const results: any = {
+      timestamp: new Date().toISOString(),
+      checks: [] as any[],
+    };
+
+    const kvTest = await env.CONFIG_KV.get('health_check');
+    results.checks.push({ service: 'CONFIG_KV', status: 'ok', detail: kvTest !== null ? 'readable' : 'empty' });
+
+    if (env.D1_SERVICE) {
+      try {
+        const d1Res = await env.D1_SERVICE.fetch('https://d1-worker.cryptolinx.workers.dev/health');
+        results.checks.push({ service: 'D1_SERVICE', status: d1Res.ok ? 'ok' : 'error', detail: d1Res.status });
+      } catch (e) {
+        results.checks.push({ service: 'D1_SERVICE', status: 'error', detail: String(e) });
+      }
+    }
+
+    if (env.TRADE_SERVICE) {
+      try {
+        const tradeRes = await env.TRADE_SERVICE.fetch('https://trade-worker.cryptolinx.workers.dev/health');
+        results.checks.push({ service: 'TRADE_SERVICE', status: tradeRes.ok ? 'ok' : 'error', detail: tradeRes.status });
+      } catch (e) {
+        results.checks.push({ service: 'TRADE_SERVICE', status: 'error', detail: String(e) });
+      }
+    }
+
+    if (env.TELEGRAM_SERVICE) {
+      try {
+        const tgRes = await env.TELEGRAM_SERVICE.fetch('https://telegram-worker.cryptolinx.workers.dev/health');
+        results.checks.push({ service: 'TELEGRAM_SERVICE', status: tgRes.ok ? 'ok' : 'error', detail: tgRes.status });
+      } catch (e) {
+        results.checks.push({ service: 'TELEGRAM_SERVICE', status: 'error', detail: String(e) });
+      }
+    }
+
+    await env.CONFIG_KV.put('housekeeping:last_check', JSON.stringify(results));
+    console.log('Housekeeping check completed:', JSON.stringify(results));
+  } catch (error) {
+    console.error('Housekeeping check failed:', error);
+  }
+}
 
 async function sendCloseOrder(env: Env, position: any, qtyOverride?: number) {
     const action = position.side === 'LONG' ? 'CLOSE_LONG' : 'CLOSE_SHORT';
