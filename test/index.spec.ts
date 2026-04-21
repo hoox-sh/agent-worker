@@ -201,3 +201,100 @@ describe("Agent Worker", () => {
 		});
 	});
 });
+
+describe("POST /agent/housekeeping", () => {
+	let mockEnv: any;
+	let mockCtx: any;
+
+	beforeEach(() => {
+		mockEnv = {
+			AI: {
+				run: vi.fn().mockResolvedValue({ response: "Test response" }),
+			},
+			CONFIG_KV: {
+				get: vi.fn().mockResolvedValue(null),
+				put: vi.fn().mockResolvedValue(undefined)
+			},
+			D1_SERVICE: {
+				fetch: vi.fn().mockResolvedValue({ ok: true })
+			},
+			TRADE_SERVICE: {
+				fetch: vi.fn().mockResolvedValue({ ok: true })
+			},
+			TELEGRAM_SERVICE: {
+				fetch: vi.fn().mockResolvedValue({ ok: true })
+			}
+		};
+		mockCtx = { waitUntil: (p: Promise<any>) => p };
+	});
+
+	it("returns housekeeping results", async () => {
+		const request = new Request("http://example.com/agent/housekeeping", { 
+			method: "POST"
+		});
+		const response = await worker.fetch(request, mockEnv, mockCtx);
+		expect(response.status).toBe(200);
+		const json: any = await response.json();
+		expect(json.timestamp).toBeDefined();
+		expect(json.checks).toBeDefined();
+	});
+
+	it("checks CONFIG_KV", async () => {
+		const request = new Request("http://example.com/agent/housekeeping", { 
+			method: "POST"
+		});
+		const response = await worker.fetch(request, mockEnv, mockCtx);
+		const json: any = await response.json();
+		expect(json.checks.some((c: any) => c.service === 'CONFIG_KV')).toBe(true);
+	});
+
+	it("checks D1_SERVICE", async () => {
+		const request = new Request("http://example.com/agent/housekeeping", { 
+			method: "POST"
+		});
+		const response = await worker.fetch(request, mockEnv, mockCtx);
+		const json: any = await response.json();
+		expect(json.checks.some((c: any) => c.service === 'D1_SERVICE')).toBe(true);
+	});
+
+	it("checks TRADE_SERVICE", async () => {
+		const request = new Request("http://example.com/agent/housekeeping", { 
+			method: "POST"
+		});
+		const response = await worker.fetch(request, mockEnv, mockCtx);
+		const json: any = await response.json();
+		expect(json.checks.some((c: any) => c.service === 'TRADE_SERVICE')).toBe(true);
+	});
+
+	it("checks TELEGRAM_SERVICE", async () => {
+		const request = new Request("http://example.com/agent/housekeeping", { 
+			method: "POST"
+		});
+		const response = await worker.fetch(request, mockEnv, mockCtx);
+		const json: any = await response.json();
+		expect(json.checks.some((c: any) => c.service === 'TELEGRAM_SERVICE')).toBe(true);
+	});
+
+	it("stores results to KV", async () => {
+		const request = new Request("http://example.com/agent/housekeeping", { 
+			method: "POST"
+		});
+		await worker.fetch(request, mockEnv, mockCtx);
+		expect(mockEnv.CONFIG_KV.put).toHaveBeenCalledWith(
+			'housekeeping:last_check',
+			expect.any(String)
+		);
+	});
+
+	it("handles service errors gracefully", async () => {
+		mockEnv.D1_SERVICE.fetch = vi.fn().mockRejectedValue(new Error("Service down"));
+		const request = new Request("http://example.com/agent/housekeeping", { 
+			method: "POST"
+		});
+		const response = await worker.fetch(request, mockEnv, mockCtx);
+		expect(response.status).toBe(200);
+		const json: any = await response.json();
+		const d1Check = json.checks.find((c: any) => c.service === 'D1_SERVICE');
+		expect(d1Check.status).toBe('error');
+	});
+});
