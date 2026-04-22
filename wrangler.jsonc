@@ -28,11 +28,5 @@
   ],
   "ai": {
     "binding": "AI"
-  },
-  "secrets_store_secrets": [
-    {
-      "name": "AGENT_INTERNAL_KEY",
-      "type": "secret"
-    }
-  ]
+  }
 }
