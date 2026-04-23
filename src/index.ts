@@ -3,17 +3,13 @@ import { ProviderManager, createProviderManager } from './providers';
 import { AIRequest } from './types';
 import { ALL_MODELS, getModelInfo } from './models';
 
-interface SecretBinding {
-  get: () => Promise<string | null>;
-}
-
 export interface Env {
   D1_SERVICE: Fetcher;
   TRADE_SERVICE: Fetcher;
   TELEGRAM_SERVICE: Fetcher;
   CONFIG_KV: KVNamespace;
   AI: any;
-  AGENT_INTERNAL_KEY?: SecretBinding;
+  AGENT_INTERNAL_KEY?: string;
 }
 
 let providerManager: ProviderManager | null = null;
@@ -26,7 +22,7 @@ function getProviderManager(env: Env): ProviderManager {
 }
 
 async function checkInternalAuth(request: Request, env: Env): Promise<{ authorized: boolean; error?: string }> {
-  const internalKey = await env.AGENT_INTERNAL_KEY?.get();
+  const internalKey = env.AGENT_INTERNAL_KEY;
   if (!internalKey) {
     return { authorized: false, error: "AGENT_INTERNAL_KEY not configured" };
   }
@@ -104,7 +100,7 @@ export default {
         // Check D1 service
         if (env.D1_SERVICE) {
           try {
-            const d1Res = await env.D1_SERVICE.fetch('https://d1-worker.cryptolinx.workers.dev/health');
+            const d1Res = await env.D1_SERVICE.fetch('/health', { method: 'GET' });
             results.checks.push({ service: 'D1_SERVICE', status: d1Res.ok ? 'ok' : 'error', detail: d1Res.status });
           } catch (e) {
             results.checks.push({ service: 'D1_SERVICE', status: 'error', detail: String(e) });
@@ -114,7 +110,7 @@ export default {
         // Check Trade service
         if (env.TRADE_SERVICE) {
           try {
-            const tradeRes = await env.TRADE_SERVICE.fetch('https://trade-worker.cryptolinx.workers.dev/health');
+            const tradeRes = await env.TRADE_SERVICE.fetch('/health', { method: 'GET' });
             results.checks.push({ service: 'TRADE_SERVICE', status: tradeRes.ok ? 'ok' : 'error', detail: tradeRes.status });
           } catch (e) {
             results.checks.push({ service: 'TRADE_SERVICE', status: 'error', detail: String(e) });
@@ -124,7 +120,7 @@ export default {
         // Check Telegram service
         if (env.TELEGRAM_SERVICE) {
           try {
-            const tgRes = await env.TELEGRAM_SERVICE.fetch('https://telegram-worker.cryptolinx.workers.dev/health');
+            const tgRes = await env.TELEGRAM_SERVICE.fetch('/health', { method: 'GET' });
             results.checks.push({ service: 'TELEGRAM_SERVICE', status: tgRes.ok ? 'ok' : 'error', detail: tgRes.status });
           } catch (e) {
             results.checks.push({ service: 'TELEGRAM_SERVICE', status: 'error', detail: String(e) });
