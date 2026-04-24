@@ -30,7 +30,7 @@ describe("Agent Worker", () => {
 			TELEGRAM_SERVICE: {
 				fetch: vi.fn().mockResolvedValue({ ok: true })
 			},
-			AGENT_INTERNAL_KEY: { get: vi.fn().mockResolvedValue(TEST_KEY) }
+			AGENT_INTERNAL_KEY: TEST_KEY
 		};
 		mockCtx = { waitUntil: (p: Promise<any>) => p };
 	});

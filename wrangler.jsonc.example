@@ -1,16 +1,24 @@
 {
   "name": "agent-worker",
-  "account_id": "debc6545e63bea36be059cbc82d80ec8",
+  // ACCOUNT_ID: Get from Cloudflare Dashboard > Overview > Account ID
+  "account_id": "YOUR_ACCOUNT_ID",
   "main": "src/index.ts",
   "compatibility_date": "2025-03-07",
   "compatibility_flags": ["nodejs_compat"],
+
+  // OBSERVABILITY: Enable logging and sampling
   "observability": {
     "enabled": true,
     "head_sampling_rate": 1
   },
+
+  // TRIGGERS: Cron schedule for autonomous monitoring
+  // Runs every 5 minutes for portfolio analysis
   "triggers": {
     "crons": ["*/5 * * * *"]
   },
+
+  // SERVICES: Service bindings to other workers
   "services": [
     {
       "binding": "D1_SERVICE",
@@ -25,13 +33,17 @@
       "service": "telegram-worker"
     }
   ],
+
+  // KV_NAMESPACES: Key-Value storage for config and kill switch
   "kv_namespaces": [
     {
       "binding": "CONFIG_KV",
-      "id": "c5917667a21745e390ff969f32b1847d"
+      "id": "YOUR_CONFIG_KV_ID"
     }
   ],
-  // Note: AGENT_INTERNAL_KEY is set via `wrangler secret put AGENT_INTERNAL_KEY`
+
+  // AI: Cloudflare Workers AI for risk analysis and summaries
+  // Note: AGENT_INTERNAL_KEY is set via `wrangler secret put`
   "ai": {
     "binding": "AI"
   }
