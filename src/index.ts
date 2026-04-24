@@ -102,7 +102,7 @@ export default {
         if (env.D1_SERVICE) {
           try {
             // Try service binding first (use absolute URL for service binding compatibility)
-            const d1Res = await env.D1_SERVICE.fetch('/health');
+            const d1Res = await env.D1_SERVICE.fetch('http://d1-worker/health');
             results.checks.push({ service: 'D1_SERVICE', status: d1Res.ok ? 'ok' : 'error', detail: d1Res.status.toString() });
           } catch (e) {
             results.checks.push({ service: 'D1_SERVICE', status: 'error', detail: String(e) });
@@ -112,7 +112,7 @@ export default {
         // Check Trade service
         if (env.TRADE_SERVICE) {
           try {
-            const tradeRes = await env.TRADE_SERVICE.fetch('/health');
+            const tradeRes = await env.TRADE_SERVICE.fetch('http://trade-worker/health');
             results.checks.push({ service: 'TRADE_SERVICE', status: tradeRes.ok ? 'ok' : 'error', detail: tradeRes.status.toString() });
           } catch (e) {
             results.checks.push({ service: 'TRADE_SERVICE', status: 'error', detail: String(e) });
@@ -122,7 +122,7 @@ export default {
         // Check Telegram service
         if (env.TELEGRAM_SERVICE) {
           try {
-            const tgRes = await env.TELEGRAM_SERVICE.fetch('/health');
+            const tgRes = await env.TELEGRAM_SERVICE.fetch('http://telegram-worker/health');
             results.checks.push({ service: 'TELEGRAM_SERVICE', status: tgRes.ok ? 'ok' : 'error', detail: tgRes.status.toString() });
           } catch (e) {
             results.checks.push({ service: 'TELEGRAM_SERVICE', status: 'error', detail: String(e) });
@@ -435,7 +435,7 @@ async function runHousekeeping(env: Env): Promise<void> {
 
     if (env.D1_SERVICE) {
       try {
-        const d1Res = await env.D1_SERVICE.fetch('/health');
+        const d1Res = await env.D1_SERVICE.fetch('http://d1-worker/health');
         results.checks.push({ service: 'D1_SERVICE', status: d1Res.ok ? 'ok' : 'error', detail: d1Res.status });
       } catch (e) {
         results.checks.push({ service: 'D1_SERVICE', status: 'error', detail: String(e) });
@@ -444,7 +444,7 @@ async function runHousekeeping(env: Env): Promise<void> {
 
     if (env.TRADE_SERVICE) {
       try {
-        const tradeRes = await env.TRADE_SERVICE.fetch('/health');
+        const tradeRes = await env.TRADE_SERVICE.fetch('http://trade-worker/health');
         results.checks.push({ service: 'TRADE_SERVICE', status: tradeRes.ok ? 'ok' : 'error', detail: tradeRes.status });
       } catch (e) {
         results.checks.push({ service: 'TRADE_SERVICE', status: 'error', detail: String(e) });
@@ -453,7 +453,7 @@ async function runHousekeeping(env: Env): Promise<void> {
 
     if (env.TELEGRAM_SERVICE) {
       try {
-        const tgRes = await env.TELEGRAM_SERVICE.fetch('/health');
+        const tgRes = await env.TELEGRAM_SERVICE.fetch('http://telegram-worker/health');
         results.checks.push({ service: 'TELEGRAM_SERVICE', status: tgRes.ok ? 'ok' : 'error', detail: tgRes.status });
       } catch (e) {
         results.checks.push({ service: 'TELEGRAM_SERVICE', status: 'error', detail: String(e) });
