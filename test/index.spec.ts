@@ -232,7 +232,7 @@ describe("POST /agent/housekeeping", () => {
 			TELEGRAM_SERVICE: {
 				fetch: vi.fn().mockResolvedValue({ ok: true })
 			},
-			AGENT_INTERNAL_KEY: { get: vi.fn().mockResolvedValue("test-key") }
+			AGENT_INTERNAL_KEY: "test-key"
 		};
 		mockCtx = { waitUntil: (p: Promise<any>) => p };
 	});

@@ -62,7 +62,7 @@ describe("agent-worker models", () => {
   });
 
   test("getRecommendedModel falls back to default", () => {
-    const model = getRecommendedModel("chat", "unknown-provider");
+    const model = getRecommendedModel("chat", "unknown-provider" as any);
     expect(ALL_MODELS[model]).toBeDefined();
   });
 
