@@ -313,6 +313,19 @@ export default {
       let totalUnrealizedPnl = 0;
       let accountValue = 10000;
 
+      try {
+        const balancesRes = await env.D1_SERVICE.fetch(new Request('http://d1-worker/api/dashboard/balances'));
+        if (balancesRes.ok) {
+          const balancesData = await balancesRes.json() as { totalBalance?: number };
+          if (balancesData.totalBalance && balancesData.totalBalance > 0) {
+            accountValue = balancesData.totalBalance;
+            console.log(`[ActiveTradeManagement] Using account value from balances: ${accountValue}`);
+          }
+        }
+      } catch (err) {
+        console.warn(`[ActiveTradeManagement] Failed to fetch account value from D1, using default: ${err}`);
+      }
+
       for (const position of openPositions) {
          console.log(`Analyzing position: ${position.symbol} (${position.side}) - Quantity: ${position.size}`);
 
