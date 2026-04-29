@@ -162,6 +162,9 @@ describe('processRoutine error paths', () => {
 	});
 
 	test('processes positions with mark price', async () => {
+		const originalFetch = globalThis.fetch;
+		globalThis.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ markPrice: '52000' })));
+
 		mockEnv.CONFIG_KV.get = vi.fn().mockImplementation((key: string) => {
 			if (key === 'agent:config') return Promise.resolve(null);
 			return Promise.resolve(null);
@@ -187,6 +190,8 @@ describe('processRoutine error paths', () => {
 			return Promise.resolve({ ok: true, json: vi.fn().mockResolvedValue({}) });
 		});
 		await worker.processRoutine(mockEnv);
+		
+		globalThis.fetch = originalFetch;
 	});
 });
 
