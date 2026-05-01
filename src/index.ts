@@ -362,7 +362,7 @@ export default {
 
 						const wmKey = `trade:watermark:${position.exchange}:${position.symbol}:${position.side}`;
 						const currentWmStr = await env.CONFIG_KV.get(wmKey);
-						let currentWm = currentWmStr ? parseFloat(currentWmStr) : position.entry_price;
+						const currentWm = currentWmStr ? parseFloat(currentWmStr) : position.entry_price;
 
 						let newWm = currentWm;
 						if (position.side === 'LONG' && markPrice > currentWm) newWm = markPrice;
