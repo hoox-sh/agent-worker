@@ -18,7 +18,7 @@ describe('AnthropicProvider', () => {
 			}));
 		});
 
-		const provider = new AnthropicProvider('sk-ant-test', mockFetch as typeof fetch);
+		const provider = new AnthropicProvider('sk-ant-test', mockFetch as unknown as unknown as typeof fetch);
 		const result = await provider.chat({
 			messages: [{ role: 'user', content: 'Hello' }],
 			model: 'claude-3-haiku-20240307',
@@ -41,7 +41,7 @@ describe('AnthropicProvider', () => {
 			}));
 		});
 
-		const provider = new AnthropicProvider('sk-ant-test', mockFetch as typeof fetch);
+		const provider = new AnthropicProvider('sk-ant-test', mockFetch as unknown as unknown as typeof fetch);
 		await provider.chat({
 			messages: [
 				{ role: 'system', content: 'You are helpful' },
@@ -65,7 +65,7 @@ describe('AnthropicProvider', () => {
 			}));
 		});
 
-		const provider = new AnthropicProvider('sk-ant-test', mockFetch as typeof fetch);
+		const provider = new AnthropicProvider('sk-ant-test', mockFetch as unknown as unknown as typeof fetch);
 		await provider.chat({
 			messages: [{ role: 'user', content: 'Hello' }],
 			model: 'claude-3-haiku-20240307',
@@ -81,7 +81,7 @@ describe('AnthropicProvider', () => {
 			new Response(JSON.stringify({ error: { message: 'Invalid API key' } }), { status: 401 })
 		);
 
-		const provider = new AnthropicProvider('sk-ant-invalid', mockFetch as typeof fetch);
+		const provider = new AnthropicProvider('sk-ant-invalid', mockFetch as unknown as typeof fetch);
 		await expect(
 			provider.chat({
 				messages: [{ role: 'user', content: 'Hello' }],
@@ -98,7 +98,7 @@ describe('AnthropicProvider', () => {
 			}))
 		);
 
-		const provider = new AnthropicProvider('sk-ant-test', mockFetch as typeof fetch);
+		const provider = new AnthropicProvider('sk-ant-test', mockFetch as unknown as unknown as typeof fetch);
 		const healthy = await provider.isHealthy();
 		expect(healthy).toBe(true);
 	});
@@ -106,7 +106,7 @@ describe('AnthropicProvider', () => {
 	test('isHealthy returns false on failure', async () => {
 		const mockFetch = mock(async () => new Response('error', { status: 500 }));
 
-		const provider = new AnthropicProvider('sk-ant-test', mockFetch as typeof fetch);
+		const provider = new AnthropicProvider('sk-ant-test', mockFetch as unknown as unknown as typeof fetch);
 		const healthy = await provider.isHealthy();
 		expect(healthy).toBe(false);
 	});

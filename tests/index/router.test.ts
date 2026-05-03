@@ -4,14 +4,14 @@ import type { Env } from '../../src/types';
 
 function makeEnv(overrides: Partial<Env> = {}): Env {
   return {
-    AI: { run: mock(async () => ({ response: 'ok' })) } as Env['AI'],
+    AI: { run: mock(async () => ({ response: 'ok' })) } as unknown as Env['AI'],
     CONFIG_KV: {
       get: mock(async () => null),
       put: mock(async () => {}),
-    } as Env['CONFIG_KV'],
-    D1_SERVICE: {} as Env['D1_SERVICE'],
-    TRADE_SERVICE: {} as Env['TRADE_SERVICE'],
-    TELEGRAM_SERVICE: {} as Env['TELEGRAM_SERVICE'],
+    } as unknown as Env['CONFIG_KV'],
+    D1_SERVICE: {} as unknown as Env['D1_SERVICE'],
+    TRADE_SERVICE: {} as unknown as Env['TRADE_SERVICE'],
+    TELEGRAM_SERVICE: {} as unknown as Env['TELEGRAM_SERVICE'],
     INTERNAL_API_KEY: 'test-key',
     ...overrides,
   } as Env;
@@ -67,11 +67,14 @@ describe('Router', () => {
     const env = makeEnv();
     // Mock fetch to prevent real HTTP requests
     const originalFetch = globalThis.fetch;
-    globalThis.fetch = mock(async () => new Response(JSON.stringify([])));
-    
+    globalThis.fetch = Object.assign(
+      mock(async () => new Response(JSON.stringify([]))),
+      { preconnect: mock(() => {}) }
+    ) as typeof fetch;
+
     // scheduled returns void, so just verify it doesn't throw
     await worker.scheduled?.({ cron: '*/5 * * * *' } as ScheduledController, env, {} as ExecutionContext);
-    
+
     globalThis.fetch = originalFetch;
   });
 });

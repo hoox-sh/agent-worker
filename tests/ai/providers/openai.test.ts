@@ -19,7 +19,7 @@ describe('OpenAIProvider', () => {
 			}));
 		});
 
-		const provider = new OpenAIProvider('sk-test', mockFetch as typeof fetch);
+		const provider = new OpenAIProvider('sk-test', mockFetch as unknown as typeof fetch);
 		const result = await provider.chat({
 			messages: [{ role: 'user', content: 'Hello' }],
 			model: 'gpt-4o-mini',
@@ -41,7 +41,7 @@ describe('OpenAIProvider', () => {
 			}));
 		});
 
-		const provider = new OpenAIProvider('sk-test', mockFetch as typeof fetch);
+		const provider = new OpenAIProvider('sk-test', mockFetch as unknown as typeof fetch);
 		await provider.chat({
 			messages: [{ role: 'user', content: 'Hello' }],
 			model: 'gpt-4o-mini',
@@ -62,7 +62,7 @@ describe('OpenAIProvider', () => {
 			}));
 		});
 
-		const provider = new OpenAIProvider('sk-test', mockFetch as typeof fetch);
+		const provider = new OpenAIProvider('sk-test', mockFetch as unknown as typeof fetch);
 		await provider.chat({
 			messages: [{ role: 'user', content: 'Hello' }],
 			model: 'gpt-4o-mini',
@@ -82,7 +82,7 @@ describe('OpenAIProvider', () => {
 			}));
 		});
 
-		const provider = new OpenAIProvider('sk-test', mockFetch as typeof fetch);
+		const provider = new OpenAIProvider('sk-test', mockFetch as unknown as typeof fetch);
 		const healthy = await provider.isHealthy();
 		expect(healthy).toBe(true);
 	});
@@ -92,7 +92,7 @@ describe('OpenAIProvider', () => {
 			return new Response(null, { status: 401 });
 		});
 
-		const provider = new OpenAIProvider('sk-test', mockFetch as typeof fetch);
+		const provider = new OpenAIProvider('sk-test', mockFetch as unknown as typeof fetch);
 		const healthy = await provider.isHealthy();
 		expect(healthy).toBe(false);
 	});
@@ -102,7 +102,7 @@ describe('OpenAIProvider', () => {
 			return new Response(JSON.stringify({ error: 'Invalid API key' }), { status: 401 });
 		});
 
-		const provider = new OpenAIProvider('sk-test', mockFetch as typeof fetch);
+		const provider = new OpenAIProvider('sk-test', mockFetch as unknown as typeof fetch);
 		await expect(
 			provider.chat({
 				messages: [{ role: 'user', content: 'Hello' }],

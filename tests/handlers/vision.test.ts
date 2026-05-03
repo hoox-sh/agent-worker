@@ -6,11 +6,11 @@ function makeEnv(overrides: Partial<Env> = {}): Env {
 	return {
 		AI: {
 			run: mock(async () => ({ response: 'I see a chart showing an uptrend' })),
-		} as Env['AI'],
-		CONFIG_KV: { get: mock(async () => null), put: mock(async () => {}) } as Env['CONFIG_KV'],
-		D1_SERVICE: {} as Env['D1_SERVICE'],
-		TRADE_SERVICE: {} as Env['TRADE_SERVICE'],
-		TELEGRAM_SERVICE: {} as Env['TELEGRAM_SERVICE'],
+		} as unknown as Env['AI'],
+		CONFIG_KV: { get: mock(async () => null), put: mock(async () => {}) } as unknown as Env['CONFIG_KV'],
+		D1_SERVICE: {} as unknown as Env['D1_SERVICE'],
+		TRADE_SERVICE: {} as unknown as Env['TRADE_SERVICE'],
+		TELEGRAM_SERVICE: {} as unknown as Env['TELEGRAM_SERVICE'],
 		...overrides,
 	} as Env;
 }
@@ -27,7 +27,7 @@ describe('handleVision', () => {
 		});
 		const res = await handleVision(req, env);
 		expect(res.status).toBe(200);
-		const body = await res.json();
+		const body = await res.json() as any;
 		expect(body.response).toBe('I see a chart showing an uptrend');
 	});
 
@@ -72,7 +72,7 @@ describe('handleVision', () => {
 					capturedModel = model;
 					return { response: 'ok' };
 				}),
-			} as Env['AI'],
+			} as unknown as Env['AI'],
 		});
 		const req = new Request('http://localhost/agent/vision', {
 			method: 'POST',

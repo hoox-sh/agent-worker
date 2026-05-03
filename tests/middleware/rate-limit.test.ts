@@ -7,7 +7,7 @@ function makeMockKV(): Env['CONFIG_KV'] {
     get: mock(async (key: string) => store.get(key) ?? null),
     put: mock(async (key: string, value: string) => { store.set(key, value); }),
     delete: mock(async (key: string) => { store.delete(key); }),
-  } as unknown as Env['CONFIG_KV'];
+  } as unknown as unknown as Env['CONFIG_KV'];
 }
 
 describe('createRateLimiter', () => {

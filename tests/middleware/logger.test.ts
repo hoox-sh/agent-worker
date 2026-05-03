@@ -59,7 +59,7 @@ describe('withRequestLog', () => {
     }, { service: 'agent-worker' });
 
     const req = new Request('http://localhost/agent/health');
-    await handler(req);
+    await handler(req, {} as any, {} as any);
 
     console.info = origInfo;
 

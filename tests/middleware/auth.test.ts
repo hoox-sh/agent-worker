@@ -8,11 +8,11 @@ function makeRequest(headers: Record<string, string> = {}): Request {
 
 function makeEnv(overrides: Partial<Env> = {}): Env {
   return {
-    AI: {} as Env['AI'],
-    CONFIG_KV: {} as Env['CONFIG_KV'],
-    D1_SERVICE: {} as Env['D1_SERVICE'],
-    TRADE_SERVICE: {} as Env['TRADE_SERVICE'],
-    TELEGRAM_SERVICE: {} as Env['TELEGRAM_SERVICE'],
+    AI: {} as unknown as Env['AI'],
+    CONFIG_KV: {} as unknown as Env['CONFIG_KV'],
+    D1_SERVICE: {} as unknown as Env['D1_SERVICE'],
+    TRADE_SERVICE: {} as unknown as Env['TRADE_SERVICE'],
+    TELEGRAM_SERVICE: {} as unknown as Env['TELEGRAM_SERVICE'],
     ...overrides,
   } as Env;
 }

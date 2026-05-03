@@ -4,7 +4,7 @@ import type { Env } from '../../src/types';
 
 function makeEnv(overrides: Partial<Env> = {}): Env {
   return {
-    AI: {} as Env['AI'],
+    AI: {} as unknown as Env['AI'],
     CONFIG_KV: {
       get: mock(async () => JSON.stringify({
         defaultProvider: 'openai',
@@ -23,10 +23,10 @@ function makeEnv(overrides: Partial<Env> = {}): Env {
         takeProfitPercent: 0.1,
       })),
       put: mock(async () => {}),
-    } as Env['CONFIG_KV'],
-    D1_SERVICE: {} as Env['D1_SERVICE'],
-    TRADE_SERVICE: {} as Env['TRADE_SERVICE'],
-    TELEGRAM_SERVICE: {} as Env['TELEGRAM_SERVICE'],
+    } as unknown as Env['CONFIG_KV'],
+    D1_SERVICE: {} as unknown as Env['D1_SERVICE'],
+    TRADE_SERVICE: {} as unknown as Env['TRADE_SERVICE'],
+    TELEGRAM_SERVICE: {} as unknown as Env['TELEGRAM_SERVICE'],
     ...overrides,
   } as Env;
 }
@@ -37,7 +37,7 @@ describe('handleStatus', () => {
     const req = new Request('http://localhost/agent/status');
     const res = await handleStatus(req, env);
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = await res.json() as any;
     expect(body.service).toBe('agent-worker');
     expect(body.config).toBeDefined();
     expect(body.providers).toBeDefined();
@@ -48,7 +48,7 @@ describe('handleStatus', () => {
     const env = makeEnv();
     const req = new Request('http://localhost/agent/status');
     const res = await handleStatus(req, env);
-    const body = await res.json();
+    const body = await res.json() as any;
     expect(body.config.defaultProvider).toBe('openai');
   });
 
@@ -56,7 +56,7 @@ describe('handleStatus', () => {
     const env = makeEnv();
     const req = new Request('http://localhost/agent/status');
     const res = await handleStatus(req, env);
-    const body = await res.json();
+    const body = await res.json() as any;
     expect(Array.isArray(body.config.fallbackChain)).toBe(true);
     expect(body.config.fallbackChain.length).toBeGreaterThan(0);
   });
@@ -66,7 +66,7 @@ describe('handleStatus', () => {
       CONFIG_KV: {
         get: mock(async () => { throw new Error('KV unavailable'); }),
         put: mock(async () => {}),
-      } as Env['CONFIG_KV'],
+      } as unknown as Env['CONFIG_KV'],
     });
     const req = new Request('http://localhost/agent/status');
     const res = await handleStatus(req, env);

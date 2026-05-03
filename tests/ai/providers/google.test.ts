@@ -15,7 +15,7 @@ describe('GoogleProvider', () => {
 			}));
 		});
 
-		const provider = new GoogleProvider('google-api-key', mockFetch as typeof fetch);
+		const provider = new GoogleProvider('google-api-key', mockFetch as unknown as typeof fetch);
 		const result = await provider.chat({
 			messages: [{ role: 'user', content: 'Hello' }],
 			model: 'gemini-1.5-flash-002',
@@ -36,7 +36,7 @@ describe('GoogleProvider', () => {
 			}));
 		});
 
-		const provider = new GoogleProvider('google-api-key', mockFetch as typeof fetch);
+		const provider = new GoogleProvider('google-api-key', mockFetch as unknown as typeof fetch);
 		await provider.chat({
 			messages: [
 				{ role: 'user', content: 'Hello' },
@@ -62,7 +62,7 @@ describe('GoogleProvider', () => {
 			}));
 		});
 
-		const provider = new GoogleProvider('google-api-key', mockFetch as typeof fetch);
+		const provider = new GoogleProvider('google-api-key', mockFetch as unknown as typeof fetch);
 		await provider.chat({
 			messages: [{ role: 'user', content: 'Hello' }],
 			model: 'gemini-1.5-flash-002',
@@ -79,7 +79,7 @@ describe('GoogleProvider', () => {
 			new Response(JSON.stringify({ error: { message: 'API key not valid', status: 'INVALID_ARGUMENT' } }), { status: 400 })
 		);
 
-		const provider = new GoogleProvider('invalid-key', mockFetch as typeof fetch);
+		const provider = new GoogleProvider('invalid-key', mockFetch as unknown as typeof fetch);
 		await expect(
 			provider.chat({
 				messages: [{ role: 'user', content: 'Hello' }],
@@ -95,7 +95,7 @@ describe('GoogleProvider', () => {
 			}))
 		);
 
-		const provider = new GoogleProvider('google-api-key', mockFetch as typeof fetch);
+		const provider = new GoogleProvider('google-api-key', mockFetch as unknown as typeof fetch);
 		const healthy = await provider.isHealthy();
 		expect(healthy).toBe(true);
 	});
@@ -103,7 +103,7 @@ describe('GoogleProvider', () => {
 	test('isHealthy returns false on failure', async () => {
 		const mockFetch = mock(async () => new Response('error', { status: 500 }));
 
-		const provider = new GoogleProvider('google-api-key', mockFetch as typeof fetch);
+		const provider = new GoogleProvider('google-api-key', mockFetch as unknown as typeof fetch);
 		const healthy = await provider.isHealthy();
 		expect(healthy).toBe(false);
 	});

@@ -6,11 +6,11 @@ function makeEnv(overrides: Partial<Env> = {}): Env {
   return {
     AI: {
       run: mock(async () => ({ shape: [1, 768], data: [0.1, 0.2, 0.3] })),
-    } as Env['AI'],
-    CONFIG_KV: { get: mock(async () => null), put: mock(async () => {}) } as Env['CONFIG_KV'],
-    D1_SERVICE: {} as Env['D1_SERVICE'],
-    TRADE_SERVICE: {} as Env['TRADE_SERVICE'],
-    TELEGRAM_SERVICE: {} as Env['TELEGRAM_SERVICE'],
+    } as unknown as Env['AI'],
+    CONFIG_KV: { get: mock(async () => null), put: mock(async () => {}) } as unknown as Env['CONFIG_KV'],
+    D1_SERVICE: {} as unknown as Env['D1_SERVICE'],
+    TRADE_SERVICE: {} as unknown as Env['TRADE_SERVICE'],
+    TELEGRAM_SERVICE: {} as unknown as Env['TELEGRAM_SERVICE'],
     ...overrides,
   } as Env;
 }
@@ -24,7 +24,7 @@ describe('handleEmbedding', () => {
     });
     const res = await handleEmbedding(req, env);
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = await res.json() as any;
     expect(body.embedding).toBeDefined();
     expect(body.model).toBeDefined();
   });
@@ -46,7 +46,7 @@ describe('handleEmbedding', () => {
       body: JSON.stringify({ text: 'test' }),
     });
     const res = await handleEmbedding(req, env);
-    const body = await res.json();
+    const body = await res.json() as any;
     expect(body.model).toBe('@cf/baai/bge-base-en-v1.5');
   });
 
@@ -58,7 +58,7 @@ describe('handleEmbedding', () => {
           capturedModel = model;
           return { shape: [1, 768], data: [] };
         }),
-      } as Env['AI'],
+      } as unknown as Env['AI'],
     });
     const req = new Request('http://localhost/agent/embedding', {
       method: 'POST',

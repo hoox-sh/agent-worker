@@ -7,16 +7,16 @@ function makeMockKV(initialData?: Record<string, string>): Env['CONFIG_KV'] {
   return {
     get: mock(async (key: string) => store.get(key) ?? null),
     put: mock(async (key: string, value: string) => { store.set(key, value); }),
-  } as unknown as Env['CONFIG_KV'];
+  } as unknown as unknown as Env['CONFIG_KV'];
 }
 
 function makeEnv(kv: Env['CONFIG_KV']): Env {
   return {
-    AI: {} as Env['AI'],
+    AI: {} as unknown as Env['AI'],
     CONFIG_KV: kv,
-    D1_SERVICE: {} as Env['D1_SERVICE'],
-    TRADE_SERVICE: {} as Env['TRADE_SERVICE'],
-    TELEGRAM_SERVICE: {} as Env['TELEGRAM_SERVICE'],
+    D1_SERVICE: {} as unknown as Env['D1_SERVICE'],
+    TRADE_SERVICE: {} as unknown as Env['TRADE_SERVICE'],
+    TELEGRAM_SERVICE: {} as unknown as Env['TELEGRAM_SERVICE'],
   } as Env;
 }
 
@@ -27,7 +27,7 @@ describe('handleGetConfig', () => {
     const req = new Request('http://localhost/agent/config');
     const res = await handleGetConfig(req, env);
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = await res.json() as any;
     expect(body.defaultProvider).toBe('workers-ai');
   });
 
@@ -53,7 +53,7 @@ describe('handleGetConfig', () => {
     const req = new Request('http://localhost/agent/config');
     const res = await handleGetConfig(req, env);
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = await res.json() as any;
     expect(body.defaultProvider).toBe('openai');
     expect(body.retryCount).toBe(5);
   });
@@ -69,7 +69,7 @@ describe('handleUpdateConfig', () => {
     });
     const res = await handleUpdateConfig(req, env);
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = await res.json() as any;
     expect(body.defaultProvider).toBe('anthropic');
     expect(body.retryCount).toBe(2);
   });

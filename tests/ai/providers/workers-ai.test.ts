@@ -2,14 +2,14 @@ import { describe, expect, test, mock } from 'bun:test';
 import { WorkersAIProvider } from '../../../src/ai/providers/workers-ai';
 import type { Env } from '../../../src/types';
 
-function makeMockAI(responses: Record<string, unknown> = {}): Env['AI'] {
+function makeMockAI(responses: Record<string, unknown> = {}): any {
 	return {
 		run: mock(async (model: string, _input: unknown) => {
 			const key = model as string;
 			if (responses[key]) return responses[key];
 			return { response: 'Workers AI response' };
 		}),
-	} as Env['AI'];
+	} as unknown as unknown as Env['AI'];
 }
 
 describe('WorkersAIProvider', () => {
@@ -50,7 +50,7 @@ describe('WorkersAIProvider', () => {
 				capturedInput = input;
 				return { response: 'ok' };
 			}),
-		} as Env['AI'];
+		} as unknown as Env['AI'];
 		const provider = new WorkersAIProvider(ai);
 		await provider.chat({
 			messages: [{ role: 'user', content: 'Hello' }],
@@ -72,7 +72,7 @@ describe('WorkersAIProvider', () => {
 	test('isHealthy returns false when AI binding throws', async () => {
 		const ai = {
 			run: mock(async () => { throw new Error('AI unavailable'); }),
-		} as Env['AI'];
+		} as unknown as Env['AI'];
 		const provider = new WorkersAIProvider(ai);
 		const healthy = await provider.isHealthy();
 		expect(healthy).toBe(false);
@@ -81,7 +81,7 @@ describe('WorkersAIProvider', () => {
 	test('chat throws on AI failure', async () => {
 		const ai = {
 			run: mock(async () => { throw new Error('Model error'); }),
-		} as Env['AI'];
+		} as unknown as Env['AI'];
 		const provider = new WorkersAIProvider(ai);
 		await expect(
 			provider.chat({

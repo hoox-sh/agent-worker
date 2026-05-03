@@ -20,7 +20,7 @@ describe('AzureProvider', () => {
 			'https://my-resource.openai.azure.com',
 			'azure-api-key',
 			'gpt-4o-mini',
-			mockFetch as typeof fetch,
+			mockFetch as unknown as typeof fetch,
 		);
 		const result = await provider.chat({
 			messages: [{ role: 'user', content: 'Hello' }],
@@ -45,7 +45,7 @@ describe('AzureProvider', () => {
 			'https://my-resource.openai.azure.com',
 			'azure-api-key',
 			'my-gpt4-deployment',
-			mockFetch as typeof fetch,
+			mockFetch as unknown as typeof fetch,
 		);
 		await provider.chat({
 			messages: [{ role: 'user', content: 'Hello' }],
@@ -68,7 +68,7 @@ describe('AzureProvider', () => {
 			'https://my-resource.openai.azure.com',
 			'azure-api-key',
 			'gpt-4o-mini',
-			mockFetch as typeof fetch,
+			mockFetch as unknown as typeof fetch,
 		);
 		await provider.chat({
 			messages: [{ role: 'user', content: 'Hello' }],
@@ -90,7 +90,7 @@ describe('AzureProvider', () => {
 			'https://my-resource.openai.azure.com',
 			'azure-api-key',
 			'gpt-4o-mini',
-			mockFetch as typeof fetch,
+			mockFetch as unknown as typeof fetch,
 		);
 		await expect(
 			provider.chat({
@@ -111,7 +111,7 @@ describe('AzureProvider', () => {
 			'https://my-resource.openai.azure.com',
 			'azure-api-key',
 			'gpt-4o-mini',
-			mockFetch as typeof fetch,
+			mockFetch as unknown as typeof fetch,
 		);
 		const healthy = await provider.isHealthy();
 		expect(healthy).toBe(true);
@@ -124,7 +124,7 @@ describe('AzureProvider', () => {
 			'https://my-resource.openai.azure.com',
 			'azure-api-key',
 			'gpt-4o-mini',
-			mockFetch as typeof fetch,
+			mockFetch as unknown as typeof fetch,
 		);
 		const healthy = await provider.isHealthy();
 		expect(healthy).toBe(false);
@@ -143,7 +143,7 @@ describe('AzureProvider', () => {
 			'https://my-resource.openai.azure.com',
 			'azure-api-key',
 			'gpt-4o-mini',
-			mockFetch as typeof fetch,
+			mockFetch as unknown as typeof fetch,
 		);
 		const result = await provider.chat({
 			messages: [{ role: 'user', content: 'Hello' }],

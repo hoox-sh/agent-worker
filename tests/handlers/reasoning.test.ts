@@ -9,11 +9,11 @@ function makeEnv(overrides: Partial<Env> = {}): Env {
 				reasoning: 'Step 1: Analyze the problem...\nStep 2: Consider options...\nStep 3: Conclude...',
 				response: 'Final answer after reasoning',
 			})),
-		} as Env['AI'],
-		CONFIG_KV: { get: mock(async () => null), put: mock(async () => {}) } as Env['CONFIG_KV'],
-		D1_SERVICE: {} as Env['D1_SERVICE'],
-		TRADE_SERVICE: {} as Env['TRADE_SERVICE'],
-		TELEGRAM_SERVICE: {} as Env['TELEGRAM_SERVICE'],
+		} as unknown as Env['AI'],
+		CONFIG_KV: { get: mock(async () => null), put: mock(async () => {}) } as unknown as Env['CONFIG_KV'],
+		D1_SERVICE: {} as unknown as Env['D1_SERVICE'],
+		TRADE_SERVICE: {} as unknown as Env['TRADE_SERVICE'],
+		TELEGRAM_SERVICE: {} as unknown as Env['TELEGRAM_SERVICE'],
 		...overrides,
 	} as Env;
 }
@@ -27,7 +27,7 @@ describe('handleReasoning', () => {
 		});
 		const res = await handleReasoning(req, env);
 		expect(res.status).toBe(200);
-		const body = await res.json();
+		const body = await res.json() as any;
 		expect(body.reasoning).toBeDefined();
 		expect(body.answer).toBe('Final answer after reasoning');
 		expect(body.model).toBeDefined();
@@ -44,7 +44,7 @@ describe('handleReasoning', () => {
 						response: 'Answer',
 					};
 				}),
-			} as Env['AI'],
+			} as unknown as Env['AI'],
 		});
 		const req = new Request('http://localhost/agent/reasoning', {
 			method: 'POST',
@@ -78,7 +78,7 @@ describe('handleReasoning', () => {
 						response: 'Answer',
 					};
 				}),
-			} as Env['AI'],
+			} as unknown as Env['AI'],
 		});
 		const req = new Request('http://localhost/agent/reasoning', {
 			method: 'POST',
@@ -95,7 +95,7 @@ describe('handleReasoning', () => {
 		const env = makeEnv({
 			AI: {
 				run: mock(async () => { throw new Error('Model error'); }),
-			} as Env['AI'],
+			} as unknown as Env['AI'],
 		});
 		const req = new Request('http://localhost/agent/reasoning', {
 			method: 'POST',
@@ -103,7 +103,7 @@ describe('handleReasoning', () => {
 		});
 		const res = await handleReasoning(req, env);
 		expect(res.status).toBe(500);
-		const body = await res.json();
+		const body = await res.json() as any;
 		expect(body.error).toBeDefined();
 	});
 });

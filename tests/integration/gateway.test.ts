@@ -16,14 +16,14 @@ function makeEnv(overrides: Partial<Env> = {}): Env {
 				}
 				return { response: 'AI response from ' + model };
 			}),
-		} as Env['AI'],
+		} as unknown as Env['AI'],
 		CONFIG_KV: {
 			get: mock(async () => null),
 			put: mock(async () => {}),
-		} as Env['CONFIG_KV'],
-		D1_SERVICE: {} as Env['D1_SERVICE'],
-		TRADE_SERVICE: {} as Env['TRADE_SERVICE'],
-		TELEGRAM_SERVICE: {} as Env['TELEGRAM_SERVICE'],
+		} as unknown as Env['CONFIG_KV'],
+		D1_SERVICE: {} as unknown as Env['D1_SERVICE'],
+		TRADE_SERVICE: {} as unknown as Env['TRADE_SERVICE'],
+		TELEGRAM_SERVICE: {} as unknown as Env['TELEGRAM_SERVICE'],
 		INTERNAL_API_KEY: 'test-key',
 		...overrides,
 	} as Env;
@@ -39,7 +39,7 @@ describe('Integration Tests', () => {
 		});
 		const res = await worker.fetch(req, env, {} as ExecutionContext);
 		expect(res.status).toBe(200);
-		const body = await res.json();
+		const body = await res.json() as any;
 		expect(body.response).toBeDefined();
 		expect(body.response).toContain('AI response');
 	});
@@ -84,7 +84,7 @@ describe('Integration Tests', () => {
 		});
 		const res = await worker.fetch(req, env, {} as ExecutionContext);
 		expect(res.status).toBe(200);
-		const body = await res.json();
+		const body = await res.json() as any;
 		expect(body.response).toBe('Vision analysis complete');
 	});
 
@@ -97,7 +97,7 @@ describe('Integration Tests', () => {
 		});
 		const res = await worker.fetch(req, env, {} as ExecutionContext);
 		expect(res.status).toBe(200);
-		const body = await res.json();
+		const body = await res.json() as any;
 		expect(body.reasoning).toBeDefined();
 		expect(body.answer).toBeDefined();
 	});
@@ -109,7 +109,7 @@ describe('Integration Tests', () => {
 		});
 		const res = await worker.fetch(req, env, {} as ExecutionContext);
 		expect(res.status).toBe(200);
-		const body = await res.json();
+		const body = await res.json() as any;
 		expect(body.period).toBe('today');
 		expect(body.providers).toBeDefined();
 		expect(body.total).toBeDefined();
@@ -122,7 +122,7 @@ describe('Integration Tests', () => {
 		});
 		const res = await worker.fetch(req, env, {} as ExecutionContext);
 		expect(res.status).toBe(200);
-		const body = await res.json();
+		const body = await res.json() as any;
 		expect(Array.isArray(body)).toBe(true);
 		expect(body.length).toBeGreaterThan(0);
 	});
@@ -131,7 +131,7 @@ describe('Integration Tests', () => {
 		const env = makeEnv({
 			AI: {
 				run: mock(async () => { throw new Error('AI unavailable'); }),
-			} as Env['AI'],
+			} as unknown as Env['AI'],
 		});
 		const req = new Request('http://localhost/agent/chat', {
 			method: 'POST',
@@ -140,7 +140,7 @@ describe('Integration Tests', () => {
 		});
 		const res = await worker.fetch(req, env, {} as ExecutionContext);
 		expect(res.status).toBe(500);
-		const body = await res.json();
+		const body = await res.json() as any;
 		expect(body.error).toBeDefined();
 	});
 });

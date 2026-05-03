@@ -6,7 +6,7 @@ describe('handleModels', () => {
     const req = new Request('http://localhost/agent/models');
     const res = await handleModels(req);
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = await res.json() as any;
     expect(Array.isArray(body.models)).toBe(true);
     expect(body.models.length).toBeGreaterThan(0);
   });
@@ -14,7 +14,7 @@ describe('handleModels', () => {
   test('each model has required fields', async () => {
     const req = new Request('http://localhost/agent/models');
     const res = await handleModels(req);
-    const body = await res.json();
+    const body = await res.json() as any;
 
     for (const model of body.models) {
       expect(model.id).toBeDefined();
@@ -26,7 +26,7 @@ describe('handleModels', () => {
   test('filters by provider query param', async () => {
     const req = new Request('http://localhost/agent/models?provider=openai');
     const res = await handleModels(req);
-    const body = await res.json();
+    const body = await res.json() as any;
 
     for (const model of body.models) {
       expect(model.provider).toBe('openai');
@@ -36,7 +36,7 @@ describe('handleModels', () => {
   test('filters by taskType query param', async () => {
     const req = new Request('http://localhost/agent/models?taskType=chat');
     const res = await handleModels(req);
-    const body = await res.json();
+    const body = await res.json() as any;
 
     for (const model of body.models) {
       expect(model.taskType).toBe('chat');
@@ -46,7 +46,7 @@ describe('handleModels', () => {
   test('returns empty array for unknown provider', async () => {
     const req = new Request('http://localhost/agent/models?provider=unknown');
     const res = await handleModels(req);
-    const body = await res.json();
+    const body = await res.json() as any;
     expect(body.models).toEqual([]);
   });
 });

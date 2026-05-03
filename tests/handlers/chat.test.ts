@@ -6,14 +6,14 @@ function makeEnv(overrides: Partial<Env> = {}): Env {
   return {
     AI: {
       run: mock(async () => ({ response: 'Hello from Workers AI' })),
-    } as Env['AI'],
+    } as unknown as Env['AI'],
     CONFIG_KV: {
       get: mock(async () => null),
       put: mock(async () => {}),
-    } as Env['CONFIG_KV'],
-    D1_SERVICE: {} as Env['D1_SERVICE'],
-    TRADE_SERVICE: {} as Env['TRADE_SERVICE'],
-    TELEGRAM_SERVICE: {} as Env['TELEGRAM_SERVICE'],
+    } as unknown as Env['CONFIG_KV'],
+    D1_SERVICE: {} as unknown as Env['D1_SERVICE'],
+    TRADE_SERVICE: {} as unknown as Env['TRADE_SERVICE'],
+    TELEGRAM_SERVICE: {} as unknown as Env['TELEGRAM_SERVICE'],
     ...overrides,
   } as Env;
 }
@@ -27,7 +27,7 @@ describe('handleChat', () => {
     });
     const res = await handleChat(req, env);
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = await res.json() as any;
     expect(body.response).toBe('Hello from Workers AI');
   });
 
@@ -60,7 +60,7 @@ describe('handleChat', () => {
     const env = makeEnv({
       AI: {
         run: mock(async () => { throw new Error('AI service unavailable'); }),
-      } as Env['AI'],
+      } as unknown as Env['AI'],
     });
     const req = new Request('http://localhost/agent/chat', {
       method: 'POST',
@@ -78,7 +78,7 @@ describe('handleChat', () => {
           capturedModel = model;
           return { response: 'ok' };
         }),
-      } as Env['AI'],
+      } as unknown as Env['AI'],
     });
     const req = new Request('http://localhost/agent/chat', {
       method: 'POST',
@@ -124,7 +124,7 @@ describe('handleChat', () => {
     const res = await handleChat(req, env);
     expect(res.status).toBe(200);
     expect(res.headers.get('Content-Type')).toBe('application/json');
-    const body = await res.json();
+    const body = await res.json() as any;
     expect(body.response).toBe('Hello from Workers AI');
   });
 });

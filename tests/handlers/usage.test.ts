@@ -4,11 +4,11 @@ import type { Env } from '../../src/types';
 
 function makeEnv(overrides: Partial<Env> = {}): Env {
 	return {
-		AI: {} as Env['AI'],
-		CONFIG_KV: { get: mock(async () => null), put: mock(async () => {}) } as Env['CONFIG_KV'],
-		D1_SERVICE: {} as Env['D1_SERVICE'],
-		TRADE_SERVICE: {} as Env['TRADE_SERVICE'],
-		TELEGRAM_SERVICE: {} as Env['TELEGRAM_SERVICE'],
+		AI: {} as unknown as Env['AI'],
+		CONFIG_KV: { get: mock(async () => null), put: mock(async () => {}) } as unknown as Env['CONFIG_KV'],
+		D1_SERVICE: {} as unknown as Env['D1_SERVICE'],
+		TRADE_SERVICE: {} as unknown as Env['TRADE_SERVICE'],
+		TELEGRAM_SERVICE: {} as unknown as Env['TELEGRAM_SERVICE'],
 		...overrides,
 	} as Env;
 }
@@ -19,7 +19,7 @@ describe('handleUsage', () => {
 		const req = new Request('http://localhost/agent/usage');
 		const res = await handleUsage(req, env);
 		expect(res.status).toBe(200);
-		const body = await res.json();
+		const body = await res.json() as any;
 		expect(body.period).toBe('today');
 		expect(body.providers).toBeDefined();
 		expect(body.total).toBeDefined();
@@ -29,7 +29,7 @@ describe('handleUsage', () => {
 		const env = makeEnv();
 		const req = new Request('http://localhost/agent/usage?period=week');
 		const res = await handleUsage(req, env);
-		const body = await res.json();
+		const body = await res.json() as any;
 		expect(body.period).toBe('week');
 	});
 
@@ -44,7 +44,7 @@ describe('handleUsage', () => {
 		const env = makeEnv();
 		const req = new Request('http://localhost/agent/usage');
 		const res = await handleUsage(req, env);
-		const body = await res.json();
+		const body = await res.json() as any;
 		expect(body.providers).toBeDefined();
 		// Providers may be empty initially
 		expect(body.providers).toBeInstanceOf(Object);
@@ -54,7 +54,7 @@ describe('handleUsage', () => {
 		const env = makeEnv();
 		const req = new Request('http://localhost/agent/usage');
 		const res = await handleUsage(req, env);
-		const body = await res.json();
+		const body = await res.json() as any;
 		expect(body.total).toBeDefined();
 		expect(body.total.requests).toBeGreaterThanOrEqual(0);
 	});

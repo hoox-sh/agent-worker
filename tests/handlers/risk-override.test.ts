@@ -4,14 +4,14 @@ import type { Env } from '../../src/types';
 
 function makeEnv(overrides: Partial<Env> = {}): Env {
   return {
-    AI: {} as Env['AI'],
+    AI: {} as unknown as Env['AI'],
     CONFIG_KV: {
       get: mock(async () => JSON.stringify({ trailingStopPercent: 0.05 })),
       put: mock(async () => {}),
-    } as Env['CONFIG_KV'],
-    D1_SERVICE: {} as Env['D1_SERVICE'],
-    TRADE_SERVICE: {} as Env['TRADE_SERVICE'],
-    TELEGRAM_SERVICE: {} as Env['TELEGRAM_SERVICE'],
+    } as unknown as Env['CONFIG_KV'],
+    D1_SERVICE: {} as unknown as Env['D1_SERVICE'],
+    TRADE_SERVICE: {} as unknown as Env['TRADE_SERVICE'],
+    TELEGRAM_SERVICE: {} as unknown as Env['TELEGRAM_SERVICE'],
     ...overrides,
   } as Env;
 }
@@ -21,7 +21,7 @@ describe('handleRiskOverride', () => {
     const kv = {
       get: mock(async () => JSON.stringify({ trailingStopPercent: 0.05 })),
       put: mock(async () => {}),
-    } as Env['CONFIG_KV'];
+    } as unknown as Env['CONFIG_KV'];
     const env = makeEnv({ CONFIG_KV: kv });
     const req = new Request('http://localhost/agent/risk-override', {
       method: 'POST',
@@ -29,7 +29,7 @@ describe('handleRiskOverride', () => {
     });
     const res = await handleRiskOverride(req, env);
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = await res.json() as any;
     expect(body.trailingStopPercent).toBe(0.08);
   });
 
