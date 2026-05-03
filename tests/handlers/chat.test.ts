@@ -87,4 +87,44 @@ describe('handleChat', () => {
     await handleChat(req, env);
     expect(capturedModel).toBe('@cf/meta/llama-3.1-70b-instruct');
   });
+
+  test('returns SSE response when stream=true', async () => {
+    const env = makeEnv();
+    const req = new Request('http://localhost/agent/chat?stream=true', {
+      method: 'POST',
+      body: JSON.stringify({ prompt: 'Hello' }),
+    });
+    const res = await handleChat(req, env);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Content-Type')).toBe('text/event-stream');
+    
+    // Read the stream
+    const reader = res.body?.getReader();
+    expect(reader).toBeDefined();
+    
+    if (reader) {
+      const decoder = new TextDecoder();
+      let chunks = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks += decoder.decode(value);
+      }
+      expect(chunks).toContain('"content"');
+      expect(chunks).toContain('"done":true');
+    }
+  });
+
+  test('returns JSON response when no stream param', async () => {
+    const env = makeEnv();
+    const req = new Request('http://localhost/agent/chat', {
+      method: 'POST',
+      body: JSON.stringify({ prompt: 'Hello' }),
+    });
+    const res = await handleChat(req, env);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Content-Type')).toBe('application/json');
+    const body = await res.json();
+    expect(body.response).toBe('Hello from Workers AI');
+  });
 });
