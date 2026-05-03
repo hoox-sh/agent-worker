@@ -1,4 +1,4 @@
-import type { AIProvider, ChatRequest, ChatResult } from '../providers/base';
+import type { AIProvider, ChatRequest, ChatResult } from './providers/base';
 
 interface GatewayOptions {
 	maxRetries?: number;

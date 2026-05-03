@@ -1,4 +1,4 @@
-import type { StreamChunk } from '../providers/base';
+import type { StreamChunk } from './providers/base';
 
 export function formatSSE(chunk: StreamChunk): string {
 	const data = JSON.stringify({
