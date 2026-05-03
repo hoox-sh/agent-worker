@@ -58,6 +58,55 @@ export interface ProviderResult {
 	latencyMs?: number;
 }
 
+// Result pattern for typed error handling
+export type Result<T, E = string> =
+	| { ok: true; value: T }
+	| { ok: false; error: E };
+
+// Request body types for handlers
+export interface ChatRequestBody {
+	messages?: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>;
+	prompt?: string;
+	systemPrompt?: string;
+	temperature?: number;
+	maxTokens?: number;
+}
+
+export interface TestModelRequestBody {
+	provider?: string;
+	model?: string;
+	prompt?: string;
+}
+
+export interface EmbeddingRequestBody {
+	text: string;
+	provider?: ProviderName;
+}
+
+export interface RiskOverrideRequestBody {
+	trailingStopPercent?: number;
+}
+
+export interface ConfigUpdateRequestBody {
+	defaultProvider?: ProviderName;
+	fallbackChain?: ProviderName[];
+	modelMap?: Record<ProviderName, string>;
+	timeoutMs?: number;
+	retryCount?: number;
+	maxDailyDrawdownPercent?: number;
+	trailingStopPercent?: number;
+	takeProfitPercent?: number;
+}
+
+// Position type for risk management
+export interface Position {
+	symbol: string;
+	side: 'LONG' | 'SHORT';
+	size: number;
+	entry_price: number;
+	exchange: string;
+}
+
 export const DEFAULT_AGENT_CONFIG: AgentConfig = {
 	defaultProvider: 'workers-ai',
 	fallbackChain: ['workers-ai', 'openai'],
