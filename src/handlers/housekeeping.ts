@@ -1,26 +1,11 @@
-import type { RiskManager } from '../risk/manager';
-import type { Logger } from '../middleware/logger';
+import type { Env } from '../types';
 import { DEFAULT_AGENT_CONFIG } from '../types';
-import { createExchangeClients } from '../market/exchanges';
+import { createLogger } from '../middleware/logger';
+import { RiskManager } from '../risk/manager';
 import { RiskExecutor } from '../risk/executor';
-
-export async function runHousekeeping(
-  riskManager: RiskManager,
-  logger: Logger,
-  currentTimeUTC: string,
-): Promise<void> {
-  const [hours] = currentTimeUTC.split(':').map(Number);
-
-  // Reset daily PnL at midnight UTC
-  if (hours === 0) {
-    riskManager.resetDailyPnl();
-    logger.info('Daily PnL reset executed');
-  }
-
-  logger.info('Housekeeping: daily PnL status', {
-    dailyPnl: riskManager.getDailyPnl(),
-  });
-}
+import { createExchangeClients } from '../market/exchanges';
+import { runHousekeeping } from '../routine/housekeeping';
+import { processRoutine } from '../routine/processor';
 
 export async function handleHousekeeping(_request: Request, env: Env): Promise<Response> {
   const logger = createLogger({ service: 'agent-worker', module: 'housekeeping' });
