@@ -1,4 +1,4 @@
-import type { Env, AIResponse } from '../../../src/types';
+import type { Env, AIResponse } from '../../src/types';
 import { validateJson, requireField, optionalField } from '../middleware/validate';
 
 export interface ReasoningRequestBody {

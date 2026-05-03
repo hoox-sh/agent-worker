@@ -1,4 +1,4 @@
-import type { Env, ProviderName } from '../../../types';
+import type { Env, ProviderName } from '../../types';
 import type { AIProvider, ChatRequest, ChatResult, StreamChunk } from './base';
 import { validateChatRequest, mergeMessages } from './base';
 
