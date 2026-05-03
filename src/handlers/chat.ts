@@ -9,16 +9,20 @@ let gateway: AIGateway | null = null;
 function getGateway(env: Env): AIGateway {
   if (!gateway) {
     const providers = [
-      { name: 'workers-ai' as const, chat: async (req) => {
-        const result = await env.AI.run(req.model as string, {
-          messages: req.messages,
-          temperature: req.temperature,
-          max_tokens: req.maxTokens,
-        });
-        return { response: (result as { response: string }).response, model: req.model, provider: 'workers-ai' as const };
-      }, isHealthy: async () => true },
+      {
+        name: 'workers-ai' as const,
+        chat: async (req: { model?: string; messages: Array<{ role: string; content: string }>; temperature?: number; maxTokens?: number }) => {
+          const result = await env.AI.run(req.model as string, {
+            messages: req.messages,
+            temperature: req.temperature,
+            max_tokens: req.maxTokens,
+          });
+          return { response: (result as { response: string }).response, model: req.model || '', provider: 'workers-ai' as const };
+        },
+        isHealthy: async () => true,
+      } as unknown as import('../ai/providers/base').AIProvider,
     ];
-    gateway = new AIGateway(providers, 'workers-ai', ['workers-ai']);
+    gateway = new AIGateway(providers as import('../ai/providers/base').AIProvider[], 'workers-ai', ['workers-ai']);
   }
   return gateway;
 }

@@ -1,5 +1,5 @@
 import type { Env } from '../types';
-import type { RiskManager } from '../risk/manager';
+import { RiskManager } from '../risk/manager';
 import type { Logger } from '../middleware/logger';
 import { DEFAULT_AGENT_CONFIG } from '../types';
 import { createExchangeClients } from '../market/exchanges';

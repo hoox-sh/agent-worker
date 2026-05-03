@@ -48,7 +48,7 @@ export async function handleReasoning(request: Request, env: Env): Promise<Respo
       messages: [{ role: 'user', content: promptResult.value }],
       reasoning_effort: reasoningEffort,
       max_tokens: maxTokens,
-    }) as AIResponse & { reasoning: string };
+    }) as unknown as AIResponse & { reasoning: string };
 
     const response: ReasoningResponse = {
       reasoning: result.reasoning || '',
