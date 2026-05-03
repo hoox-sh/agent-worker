@@ -44,10 +44,21 @@ export class AnthropicProvider implements AIProvider {
 			},
 		);
 
-		if (!response.ok) {
-			const error = await response.json().catch(() => ({ error: { message: 'Unknown error' } }));
-			throw new Error(`Anthropic API error: ${error.error?.message || response.statusText}`);
-		}
+if (!response.ok) {
+  const errorBody = await response.json().catch(() => ({ error: { message: 'Unknown error' } }));
+  let errorMessage: string;
+  if (typeof errorBody === 'object' && errorBody !== null && 'error' in errorBody) {
+    const err = (errorBody as Record<string, unknown>).error;
+    if (typeof err === 'object' && err !== null && 'message' in err) {
+      errorMessage = String((err as Record<string, unknown>).message);
+    } else {
+      errorMessage = response.statusText;
+    }
+  } else {
+    errorMessage = response.statusText;
+  }
+  throw new Error(`Anthropic API error: ${errorMessage}`);
+}
 
 		const data = await response.json() as {
 			content: Array<{ type: string; text: string }>;

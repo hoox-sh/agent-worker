@@ -2,6 +2,7 @@ import type { Env, AIResponse } from '../types';
 import { validateJson, requireField, optionalField } from '../middleware/validate';
 
 export interface VisionRequestBody {
+  [key: string]: unknown;
   imageUrl?: string;
   imageBase64?: string;
   prompt?: string;
@@ -11,8 +12,8 @@ export interface VisionRequestBody {
 
 interface ImageSource {
   ok: boolean;
-  value: string;
-  source: 'url' | 'base64';
+  value?: string;
+  source?: 'url' | 'base64';
   error?: string;
 }
 
@@ -51,7 +52,7 @@ export async function handleVision(request: Request, env: Env): Promise<Response
       images: [imageResult.value],
       prompt: promptResult.value,
       max_tokens: maxTokens,
-    }) as AIResponse;
+    }) as unknown as AIResponse;
 
     return new Response(JSON.stringify({ response: result.response, model }), { headers: { 'Content-Type': 'application/json' } });
   } catch (error) {

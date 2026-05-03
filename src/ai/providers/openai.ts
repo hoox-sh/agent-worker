@@ -39,10 +39,13 @@ export class OpenAIProvider implements AIProvider {
 			},
 		);
 
-		if (!response.ok) {
-			const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-			throw new Error(`OpenAI API error: ${error.error || response.statusText}`);
-		}
+if (!response.ok) {
+  const errorBody = await response.json().catch(() => ({ error: 'Unknown error' }));
+  const errorMessage = typeof errorBody === 'object' && errorBody !== null && 'error' in errorBody
+    ? String((errorBody as Record<string, unknown>).error)
+    : response.statusText;
+  throw new Error(`OpenAI API error: ${errorMessage}`);
+}
 
 		const data = await response.json() as {
 			choices: Array<{ message: { content: string }; finish_reason: string }>;

@@ -57,10 +57,17 @@ export class GoogleProvider implements AIProvider {
 			body: JSON.stringify(body),
 		});
 
-		if (!res.ok) {
-			const error = await res.json().catch(() => ({ error: { message: 'Unknown error' } }));
-			throw new Error(`Google API error: ${error.error?.message || res.statusText}`);
-		}
+if (!res.ok) {
+  const errorBody = await res.json().catch(() => null);
+  let errorMessage = res.statusText;
+  if (errorBody && typeof errorBody === 'object' && 'error' in errorBody) {
+    const err = (errorBody as Record<string, unknown>).error;
+    if (err && typeof err === 'object' && 'message' in err) {
+      errorMessage = String((err as Record<string, unknown>).message);
+    }
+  }
+  throw new Error(`Google API error: ${errorMessage}`);
+}
 
 		const data = await res.json() as {
 			candidates: Array<{ content: { parts: Array<{ text: string }> }; finishReason: string }>;

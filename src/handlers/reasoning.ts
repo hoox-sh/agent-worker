@@ -2,6 +2,7 @@ import type { Env, AIResponse } from '../../src/types';
 import { validateJson, requireField, optionalField } from '../middleware/validate';
 
 export interface ReasoningRequestBody {
+  [key: string]: unknown;
   prompt: string;
   model?: string;
   reasoningEffort?: 'low' | 'medium' | 'high';

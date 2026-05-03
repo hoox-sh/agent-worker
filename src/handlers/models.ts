@@ -8,13 +8,6 @@ const CF_MODELS: Record<string, ModelInfo> = {
     contextLength: 128000,
     supportsStreaming: true,
   },
-  '@cf/meta/llama-3.1-8b-instruct': {
-    id: '@cf/meta/llama-3.1-8b-instruct',
-    provider: 'workers-ai' as ProviderName,
-    taskType: 'chat' as TaskType,
-    contextLength: 8192,
-    supportsStreaming: true,
-  },
   '@cf/meta/llama-3.2-3b-instruct': {
     id: '@cf/meta/llama-3.2-3b-instruct',
     provider: 'workers-ai' as ProviderName,

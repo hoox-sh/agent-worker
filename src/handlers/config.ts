@@ -1,4 +1,4 @@
-import type { Env, AgentConfig, ConfigUpdateRequestBody } from '../types';
+import type { Env, AgentConfig, ConfigUpdateRequestBody, ProviderName } from '../types';
 import { DEFAULT_AGENT_CONFIG } from '../types';
 import { validateJson } from '../middleware/validate';
 

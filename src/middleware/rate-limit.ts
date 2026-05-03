@@ -1,3 +1,5 @@
+import type { Env } from '../types';
+
 interface RateLimitConfig {
   maxRequests: number;
   windowSeconds: number;

@@ -1,8 +1,11 @@
+import type { Env } from '../types';
 import type { RiskManager } from '../risk/manager';
 import type { Logger } from '../middleware/logger';
 import { DEFAULT_AGENT_CONFIG } from '../types';
 import { createExchangeClients } from '../market/exchanges';
 import { RiskExecutor } from '../risk/executor';
+import { createLogger } from '../middleware/logger';
+import { processRoutine } from './processor';
 
 export async function runHousekeeping(
   riskManager: RiskManager,

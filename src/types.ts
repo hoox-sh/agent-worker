@@ -65,6 +65,7 @@ export type Result<T, E = string> =
 
 // Request body types for handlers
 export interface ChatRequestBody {
+	[key: string]: unknown;
 	messages?: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>;
 	prompt?: string;
 	systemPrompt?: string;
@@ -73,12 +74,14 @@ export interface ChatRequestBody {
 }
 
 export interface TestModelRequestBody {
+	[key: string]: unknown;
 	provider?: string;
 	model?: string;
 	prompt?: string;
 }
 
 export interface EmbeddingRequestBody {
+	[key: string]: unknown;
 	text: string;
 	provider?: ProviderName;
 }
