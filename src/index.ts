@@ -10,6 +10,10 @@ import { handleEmbedding } from './handlers/embedding';
 import { handleHousekeeping } from './handlers/housekeeping';
 import { handleRiskOverride } from './handlers/risk-override';
 import { handleStatus } from './handlers/status';
+import { handleVision } from './handlers/vision';
+import { handleReasoning } from './handlers/reasoning';
+import { handleUsage } from './handlers/usage';
+import { listPromptTemplates } from './ai/prompts';
 
 const logger = createLogger({ service: 'agent-worker', module: 'router' });
 
@@ -61,6 +65,26 @@ async function route(request: Request, env: Env, _ctx: ExecutionContext): Promis
 
   if (path === '/agent/risk-override' && method === 'POST') {
     return handleRiskOverride(request, env);
+  }
+
+  // New routes from Phase 2
+  if (path === '/agent/vision' && method === 'POST') {
+    return handleVision(request, env);
+  }
+
+  if (path === '/agent/reasoning' && method === 'POST') {
+    return handleReasoning(request, env);
+  }
+
+  if (path === '/agent/usage' && method === 'GET') {
+    return handleUsage(request, env);
+  }
+
+  if (path === '/agent/prompts' && method === 'GET') {
+    const templates = listPromptTemplates();
+    return new Response(JSON.stringify(templates), {
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 
   return new Response(JSON.stringify({ error: 'Not found' }), {
