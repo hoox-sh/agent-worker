@@ -43,15 +43,15 @@ export function createLogger(ctx: LogContext): Logger {
 }
 
 export function withRequestLog(
-  handler: (request: Request) => Promise<Response>,
-  ctx: LogContext,
-): (request: Request) => Promise<Response> {
-  return async (request: Request) => {
+  handler: (request: Request, env: any, ctx: ExecutionContext) => Promise<Response>,
+  logCtx: LogContext,
+): (request: Request, env: any, ctx: ExecutionContext) => Promise<Response> {
+  return async (request: Request, env: any, ctx: ExecutionContext) => {
     const start = Date.now();
-    const logger = createLogger(ctx);
+    const logger = createLogger(logCtx);
 
     try {
-      const response = await handler(request);
+      const response = await handler(request, env, ctx);
       const duration = Date.now() - start;
       const url = new URL(request.url);
       logger.info(`${request.method} ${url.pathname}`, {

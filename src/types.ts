@@ -107,6 +107,16 @@ export interface Position {
 	exchange: string;
 }
 
+// Environment bindings (from wrangler.jsonc)
+export interface Env {
+  AI: Ai;
+  CONFIG_KV: KVNamespace;
+  D1_SERVICE: Fetcher;
+  TRADE_SERVICE: Fetcher;
+  TELEGRAM_SERVICE: Fetcher;
+  INTERNAL_API_KEY: string;
+}
+
 export const DEFAULT_AGENT_CONFIG: AgentConfig = {
 	defaultProvider: 'workers-ai',
 	fallbackChain: ['workers-ai', 'openai'],

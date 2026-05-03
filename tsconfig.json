@@ -3,11 +3,11 @@
 		"target": "es2022",
 		"module": "es2022",
 		"lib": ["es2022"],
-		"types": ["@cloudflare/workers-types"],
+		"types": ["@cloudflare/workers-types", "bun-types"],
 		"moduleResolution": "bundler",
 		"strict": true,
 		"skipLibCheck": true,
 		"resolveJsonModule": true
 	},
-	"exclude": ["test"]
+	"exclude": ["test", "node_modules"]
 }
