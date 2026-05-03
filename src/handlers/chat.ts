@@ -1,0 +1,68 @@
+import type { Env, ChatRequestBody, AIResponse } from '../types';
+import { validateJson, requireField, optionalField } from '../middleware/validate';
+
+export async function handleChat(request: Request, env: Env): Promise<Response> {
+  const parsed = await validateJson(request);
+  if (!parsed.ok) {
+    return new Response(JSON.stringify({ error: parsed.error }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  const body = parsed.value as ChatRequestBody;
+
+  // Require either messages or prompt
+  const messagesResult = body.messages
+    ? { ok: true as const, value: body.messages }
+    : (() => {
+        const result = requireField<string>(body, 'prompt');
+        if (!result.ok) return result;
+        return { ok: true as const, value: [{ role: 'user' as const, content: result.value }] };
+      })();
+
+  if (!messagesResult.ok) {
+    return new Response(JSON.stringify({ error: messagesResult.error }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  const messages = messagesResult.value;
+  const model = optionalField<string>(body, 'model', '@cf/meta/llama-3.1-8b-instruct');
+  const temperature = optionalField<number>(body, 'temperature', 0.7);
+  const maxTokens = optionalField<number>(body, 'maxTokens', 1024);
+
+  try {
+    const result = await env.AI.run(model as string, {
+      messages,
+      temperature,
+      max_tokens: maxTokens,
+    });
+
+    const response: AIResponse = {
+      response: (result as { response: string }).response,
+      model,
+      usage: (result as { usage?: { prompt_tokens: number; completion_tokens: number } }).usage
+        ? {
+            promptTokens: (result as any).usage.prompt_tokens,
+            completionTokens: (result as any).usage.completion_tokens,
+            totalTokens:
+              (result as any).usage.prompt_tokens + (result as any).usage.completion_tokens,
+          }
+        : undefined,
+    };
+
+    return new Response(JSON.stringify(response), {
+      headers: { 'Content-Type': 'application/json' },
+    });
+  } catch (error) {
+    return new Response(
+      JSON.stringify({
+        error: 'AI request failed',
+        details: error instanceof Error ? error.message : String(error),
+      }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } },
+    );
+  }
+}
