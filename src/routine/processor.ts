@@ -1,7 +1,7 @@
 import type { RiskManager } from '../risk/manager';
 import type { RiskExecutor } from '../risk/executor';
 import type { ExchangeClient } from '../market/exchanges';
-import type { Logger } from '../middleware/logger';
+import type { Logger } from '@hoox/shared/middleware';
 
 export interface RoutineResult {
   positionsChecked: number;

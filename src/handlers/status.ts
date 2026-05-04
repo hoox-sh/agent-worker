@@ -1,6 +1,6 @@
 import type { Env, AgentConfig } from '../types';
 import { DEFAULT_AGENT_CONFIG } from '../types';
-import { createLogger } from '../middleware/logger';
+import { createLogger } from '@hoox/shared/middleware';
 
 export async function handleStatus(_request: Request, env: Env): Promise<Response> {
   try {

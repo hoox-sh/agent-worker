@@ -1,6 +1,6 @@
 import type { Env } from '../types';
 import { DEFAULT_AGENT_CONFIG } from '../types';
-import { createLogger } from '../middleware/logger';
+import { createLogger } from '@hoox/shared/middleware';
 import { RiskManager } from '../risk/manager';
 import { RiskExecutor } from '../risk/executor';
 import { createExchangeClients } from '../market/exchanges';

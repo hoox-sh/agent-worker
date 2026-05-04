@@ -1,5 +1,5 @@
 import { describe, expect, test, mock, beforeEach } from 'bun:test';
-import { createRateLimiter } from '../../src/middleware/rate-limit';
+import { createRateLimiter } from '@hoox/shared/middleware/rate-limit';
 
 function makeMockKV(): Env['CONFIG_KV'] {
   const store = new Map<string, string>();

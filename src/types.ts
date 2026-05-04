@@ -1,3 +1,7 @@
+export type Result<T, E = string> =
+	| { ok: true; value: T }
+	| { ok: false; error: E };
+
 export type ProviderName = 'workers-ai' | 'openai' | 'anthropic' | 'google' | 'azure';
 
 export type TaskType = 'chat' | 'embedding' | 'vision' | 'reasoning' | 'code' | 'summarization' | 'text-generation';
@@ -58,10 +62,8 @@ export interface ProviderResult {
 	latencyMs?: number;
 }
 
-// Result pattern for typed error handling
-export type Result<T, E = string> =
-	| { ok: true; value: T }
-	| { ok: false; error: E };
+// Result pattern for typed error handling - imported from shared types
+// Local definition removed, using shared Result<T> type
 
 // Request body types for handlers
 export interface ChatRequestBody {

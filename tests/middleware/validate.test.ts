@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { validateJson, requireField, optionalField } from '../../src/middleware/validate';
+import { validateJson, requireField, optionalField } from '@hoox/shared/middleware/validate';
 
 describe('validateJson', () => {
   test('returns parsed body for valid JSON', async () => {

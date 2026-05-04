@@ -1,5 +1,5 @@
 import type { Env, EmbeddingRequestBody } from '../types';
-import { validateJson, requireField, optionalField } from '../middleware/validate';
+import { validateJson, requireField, optionalField } from '@hoox/shared/middleware';
 
 export async function handleEmbedding(request: Request, env: Env): Promise<Response> {
   const parsed = await validateJson(request);

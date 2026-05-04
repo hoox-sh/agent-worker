@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { requireAuth } from '../../src/middleware/auth';
+import { requireAuth } from '@hoox/shared/middleware/auth';
 import type { Env } from '../../src/types';
 
 function makeRequest(headers: Record<string, string> = {}): Request {

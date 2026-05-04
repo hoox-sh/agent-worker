@@ -1,6 +1,6 @@
 import type { Env, AgentConfig, ConfigUpdateRequestBody, ProviderName } from '../types';
 import { DEFAULT_AGENT_CONFIG } from '../types';
-import { validateJson } from '../middleware/validate';
+import { validateJson } from '@hoox/shared/middleware';
 
 const VALID_PROVIDERS: ProviderName[] = ['workers-ai', 'openai', 'anthropic', 'google', 'azure'];
 const CONFIG_KEY = 'agent:config';

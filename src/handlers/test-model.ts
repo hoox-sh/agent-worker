@@ -1,5 +1,5 @@
 import type { Env, TestModelRequestBody } from '../types';
-import { validateJson, requireField, optionalField } from '../middleware/validate';
+import { validateJson, requireField, optionalField } from '@hoox/shared/middleware';
 
 export async function handleTestModel(request: Request, env: Env): Promise<Response> {
   const parsed = await validateJson(request);

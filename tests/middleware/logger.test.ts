@@ -1,5 +1,5 @@
 import { describe, expect, test, mock } from 'bun:test';
-import { createLogger, withRequestLog } from '../../src/middleware/logger';
+import { createLogger, withRequestLog } from '@hoox/shared/middleware/logger';
 
 describe('createLogger', () => {
   test('produces structured JSON log line', () => {

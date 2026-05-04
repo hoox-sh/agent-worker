@@ -1,4 +1,4 @@
-import type { Position, AgentConfig } from '../types';
+import type { Position, AgentConfig, DEFAULT_AGENT_CONFIG } from '../types';
 
 export class RiskManager {
   private highWatermarks = new Map<string, number>();

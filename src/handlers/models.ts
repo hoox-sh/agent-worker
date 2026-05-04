@@ -1,4 +1,4 @@
-import type { ModelInfo, TaskType, ProviderName } from '../types';
+import type { ModelInfo, ProviderName, TaskType } from '../types';
 
 const CF_MODELS: Record<string, ModelInfo> = {
   '@cf/meta/llama-3.1-8b-instruct': {

@@ -1,6 +1,6 @@
 import type { Env } from './types';
-import { requireAuth } from './middleware/auth';
-import { withRequestLog, createLogger } from './middleware/logger';
+import { requireAuth } from '@hoox/shared/middleware';
+import { withRequestLog, createLogger } from '@hoox/shared/middleware';
 import { handleHealth } from './handlers/health';
 import { handleGetConfig, handleUpdateConfig } from './handlers/config';
 import { handleChat } from './handlers/chat';

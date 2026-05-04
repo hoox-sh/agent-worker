@@ -1,5 +1,5 @@
 import type { Env, AIResponse } from '../../src/types';
-import { validateJson, requireField, optionalField } from '../middleware/validate';
+import { validateJson, requireField, optionalField } from '@hoox/shared/middleware';
 
 export interface ReasoningRequestBody {
   [key: string]: unknown;

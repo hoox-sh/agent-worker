@@ -1,6 +1,6 @@
 import type { Env, AgentConfig, RiskOverrideRequestBody } from '../types';
 import { DEFAULT_AGENT_CONFIG } from '../types';
-import { validateJson } from '../middleware/validate';
+import { validateJson } from '@hoox/shared/middleware';
 
 const CONFIG_KEY = 'agent:config';
 

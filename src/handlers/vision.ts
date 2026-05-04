@@ -1,5 +1,5 @@
 import type { Env, AIResponse } from '../types';
-import { validateJson, requireField, optionalField } from '../middleware/validate';
+import { validateJson, requireField, optionalField } from '@hoox/shared/middleware';
 
 export interface VisionRequestBody {
   [key: string]: unknown;

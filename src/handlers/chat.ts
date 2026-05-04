@@ -1,5 +1,5 @@
 import type { Env, ChatRequestBody, AIResponse } from '../types';
-import { validateJson, requireField, optionalField } from '../middleware/validate';
+import { validateJson, requireField, optionalField } from '@hoox/shared/middleware';
 import { AIGateway } from '../ai/gateway';
 import { createStreamResponse } from '../ai/streaming';
 
