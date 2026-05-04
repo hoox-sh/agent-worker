@@ -18,7 +18,8 @@ export class RiskManager {
   }
 
   checkDrawdown(): boolean {
-    return this.dailyPnl <= this.config.maxDailyDrawdownPercent;
+    // Use absolute value to handle both positive (5) and negative (-5) config values correctly
+    return this.dailyPnl <= -Math.abs(this.config.maxDailyDrawdownPercent);
   }
 
   updateHighWatermark(position: Position, currentPrice: number): void {

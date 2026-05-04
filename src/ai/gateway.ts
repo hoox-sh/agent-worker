@@ -3,11 +3,13 @@ import type { AIProvider, ChatRequest, ChatResult } from './providers/base';
 interface GatewayOptions {
 	maxRetries?: number;
 	failureThreshold?: number; // consecutive failures before marking unhealthy
+	healthCheckTTL?: number; // ms to cache health status (default 30s)
 }
 
 interface ProviderHealth {
 	healthy: boolean;
 	consecutiveFailures: number;
+	lastChecked: number; // timestamp of last live health check
 }
 
 export class AIGateway {
@@ -24,17 +26,18 @@ export class AIGateway {
 		this.options = {
 			maxRetries: options.maxRetries ?? 3,
 			failureThreshold: options.failureThreshold ?? 5,
+			healthCheckTTL: options.healthCheckTTL ?? 30_000,
 		};
 
 		// Register providers
 		for (const p of providerList) {
 			this.providers.set(p.name, p);
 			// Initialize health - will be checked on first use
-			this.health.set(p.name, { healthy: true, consecutiveFailures: 0 });
+			this.health.set(p.name, { healthy: true, consecutiveFailures: 0, lastChecked: 0 });
 		}
 	}
 
-	// Call this to initialize health status from providers
+	// Initialize health status by calling isHealthy() on each provider
 	async init(): Promise<void> {
 		for (const [name, provider] of this.providers.entries()) {
 			try {
@@ -42,45 +45,33 @@ export class AIGateway {
 				const health = this.health.get(name);
 				if (health) {
 					health.healthy = healthy;
+					health.lastChecked = Date.now();
 				}
 			} catch {
 				const health = this.health.get(name);
 				if (health) {
 					health.healthy = false;
+					health.lastChecked = Date.now();
 				}
 			}
 		}
 	}
 
-	// Initialize health status by calling isHealthy() on each provider
-	async initializeHealth(): Promise<void> {
-		for (const [name, provider] of this.providers.entries()) {
-			try {
-				const healthy = await provider.isHealthy();
-				const health = this.health.get(name);
-				if (health) {
-					health.healthy = healthy;
-				}
-			} catch {
-				const health = this.health.get(name);
-				if (health) {
-					health.healthy = false;
-				}
-			}
-		}
-	}
-
-	// Check if provider is healthy, with live check
+	// Check if provider is healthy, with TTL-cached live check
 	private async checkHealth(providerName: string, provider: AIProvider): Promise<boolean> {
 		const health = this.health.get(providerName);
 		if (!health) return false;
 
-		// Always do a live check for simplicity
-		// In production, you might cache this with a TTL
-		try {
-			health.healthy = await provider.isHealthy();
-		} catch {
-			health.healthy = false;
+		const now = Date.now();
+		const cacheExpired = now - health.lastChecked > this.options.healthCheckTTL;
+
+		if (cacheExpired) {
+			try {
+				health.healthy = await provider.isHealthy();
+			} catch {
+				health.healthy = false;
+			}
+			health.lastChecked = now;
 		}
 
 		return health.healthy;

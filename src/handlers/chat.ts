@@ -3,28 +3,22 @@ import { validateJson, requireField, optionalField } from '@hoox/shared/middlewa
 import { AIGateway } from '../ai/gateway';
 import { createStreamResponse } from '../ai/streaming';
 
-// Create a simple gateway for streaming
-let gateway: AIGateway | null = null;
-
-function getGateway(env: Env): AIGateway {
-  if (!gateway) {
-    const providers = [
-      {
-        name: 'workers-ai' as const,
-        chat: async (req: { model?: string; messages: Array<{ role: string; content: string }>; temperature?: number; maxTokens?: number }) => {
-          const result = await env.AI.run(req.model as string, {
-            messages: req.messages,
-            temperature: req.temperature,
-            max_tokens: req.maxTokens,
-          });
-          return { response: (result as { response: string }).response, model: req.model || '', provider: 'workers-ai' as const };
-        },
-        isHealthy: async () => true,
-      } as unknown as import('../ai/providers/base').AIProvider,
-    ];
-    gateway = new AIGateway(providers as import('../ai/providers/base').AIProvider[], 'workers-ai', ['workers-ai']);
-  }
-  return gateway;
+function createGateway(env: Env): AIGateway {
+  const providers = [
+    {
+      name: 'workers-ai' as const,
+      chat: async (req: { model?: string; messages: Array<{ role: string; content: string }>; temperature?: number; maxTokens?: number }) => {
+        const result = await env.AI.run(req.model as string, {
+          messages: req.messages,
+          temperature: req.temperature,
+          max_tokens: req.maxTokens,
+        });
+        return { response: (result as { response: string }).response, model: req.model || '', provider: 'workers-ai' as const };
+      },
+      isHealthy: async () => true,
+    } as unknown as import('../ai/providers/base').AIProvider,
+  ];
+  return new AIGateway(providers as import('../ai/providers/base').AIProvider[], 'workers-ai', ['workers-ai']);
 }
 
 export async function handleChat(request: Request, env: Env): Promise<Response> {
@@ -64,8 +58,7 @@ export async function handleChat(request: Request, env: Env): Promise<Response> 
 
   // Streaming support
   if (shouldStream) {
-    const gw = getGateway(env);
-    async function* generateStream() {
+    const generateStream = async function* () {
       // For now, simulate streaming by yielding the full response as one chunk
       // In production, this would use actual streaming from the AI provider
       try {
@@ -81,7 +74,7 @@ export async function handleChat(request: Request, env: Env): Promise<Response> 
         yield { content: '', model, provider: 'workers-ai' as const, done: true };
         throw error;
       }
-    }
+    };
 
     return createStreamResponse(generateStream());
   }
