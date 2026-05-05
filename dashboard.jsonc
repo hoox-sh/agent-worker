@@ -115,11 +115,29 @@
         "system_prompt_vision": "System prompt used for vision/image analysis requests."
       }
     },
+    "analytics": {
+      "title": "Analytics",
+      "description": "Analytics and metrics collection via analytics-worker",
+      "icon": "bar-chart",
+      "priority": 45,
+      "fields": {
+        "analytics_enabled": true,
+        "track_ai_usage": true,
+        "track_api_latency": true,
+        "track_errors": true
+      },
+      "descriptions": {
+        "analytics_enabled": "Send event data to analytics-worker for dashboard visualization.",
+        "track_ai_usage": "Track AI provider token usage, latency, and costs per request.",
+        "track_api_latency": "Track inter-worker API call latency and success rates.",
+        "track_errors": "Track error rates and types for monitoring and alerting."
+      }
+    },
     "endpoints": {
       "title": "Available Endpoints",
       "description": "All REST endpoints exposed by the agent-worker.",
       "icon": "globe",
-      "priority": 40,
+      "priority": 50,
       "fields": {
         "GET /agent/config": "Get current AI provider configuration",
         "POST /agent/config": "Update AI provider configuration at runtime",
