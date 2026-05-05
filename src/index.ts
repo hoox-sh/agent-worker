@@ -101,8 +101,8 @@ export default {
 				// Check D1 service
 				if (env.D1_SERVICE) {
 					try {
-						// Try service binding first (use absolute URL for service binding compatibility)
-						const d1Res = await env.D1_SERVICE.fetch('http://d1-worker/health');
+						// Use service binding (URL is ignored, use localhost as placeholder)
+						const d1Res = await env.D1_SERVICE.fetch(new Request('http://localhost/health'));
 						results.checks.push({ service: 'D1_SERVICE', status: d1Res.ok ? 'ok' : 'error', detail: d1Res.status.toString() });
 					} catch (e) {
 						results.checks.push({ service: 'D1_SERVICE', status: 'error', detail: String(e) });
@@ -112,7 +112,7 @@ export default {
 				// Check Trade service
 				if (env.TRADE_SERVICE) {
 					try {
-						const tradeRes = await env.TRADE_SERVICE.fetch('http://trade-worker/health');
+						const tradeRes = await env.TRADE_SERVICE.fetch(new Request('http://localhost/health'));
 						results.checks.push({ service: 'TRADE_SERVICE', status: tradeRes.ok ? 'ok' : 'error', detail: tradeRes.status.toString() });
 					} catch (e) {
 						results.checks.push({ service: 'TRADE_SERVICE', status: 'error', detail: String(e) });
@@ -122,7 +122,7 @@ export default {
 				// Check Telegram service
 				if (env.TELEGRAM_SERVICE) {
 					try {
-						const tgRes = await env.TELEGRAM_SERVICE.fetch('http://telegram-worker/health');
+						const tgRes = await env.TELEGRAM_SERVICE.fetch(new Request('http://localhost/health'));
 						results.checks.push({ service: 'TELEGRAM_SERVICE', status: tgRes.ok ? 'ok' : 'error', detail: tgRes.status.toString() });
 					} catch (e) {
 						results.checks.push({ service: 'TELEGRAM_SERVICE', status: 'error', detail: String(e) });
@@ -312,7 +312,7 @@ export default {
 		try {
 			console.log('Starting agent processing routine...');
 
-			const positionsRes = await env.D1_SERVICE.fetch(new Request('http://d1-service/api/dashboard/positions'));
+			const positionsRes = await env.D1_SERVICE.fetch(new Request('http://localhost/api/dashboard/positions'));
 			if (!positionsRes.ok) {
 				console.error('Failed to fetch positions from D1_SERVICE:', await positionsRes.text());
 				return;
@@ -335,7 +335,7 @@ export default {
 			let accountValue = 10000;
 
 			try {
-				const balancesRes = await env.D1_SERVICE.fetch(new Request('http://d1-worker/api/dashboard/balances'));
+					const balancesRes = await env.D1_SERVICE.fetch(new Request('http://localhost/api/dashboard/balances'));
 				if (balancesRes.ok) {
 					const balancesData = (await balancesRes.json()) as { totalBalance?: number };
 					if (balancesData.totalBalance && balancesData.totalBalance > 0) {
@@ -410,7 +410,7 @@ export default {
 
 				if (env.TELEGRAM_SERVICE) {
 					await env.TELEGRAM_SERVICE.fetch(
-						new Request('http://telegram-worker/webhook', {
+						new Request('http://localhost/webhook', {
 							method: 'POST',
 							body: JSON.stringify({
 								message: `🚨 EMERGENCY: Max daily drawdown reached (${pnlPercent.toFixed(2)}%). Global Kill Switch ENGAGED.`,
@@ -423,7 +423,7 @@ export default {
 			const currentMin = new Date().getMinutes();
 			if (currentMin >= 0 && currentMin < 5) {
 				try {
-					const systemLogsRes = await env.D1_SERVICE.fetch(new Request('http://d1-service/api/dashboard/logs'));
+					const systemLogsRes = await env.D1_SERVICE.fetch(new Request('http://localhost/api/dashboard/logs'));
 					if (systemLogsRes.ok && env.AI) {
 						const logsData: any = await systemLogsRes.json();
 						const logs = logsData.logs || [];
@@ -444,12 +444,12 @@ export default {
 							await env.CONFIG_KV.put('dashboard:ai_health_summary', result.data.response);
 
 							if (env.TELEGRAM_SERVICE) {
-								await env.TELEGRAM_SERVICE.fetch(
-									new Request('http://telegram-worker/webhook', {
+						await env.TELEGRAM_SERVICE.fetch(
+							new Request('http://localhost/webhook', {
 										method: 'POST',
 										body: JSON.stringify({ message: `🧠 AI System Health Update:\n${result.data.response}` }),
-									}),
-								);
+								}),
+						);
 							}
 						}
 					}
