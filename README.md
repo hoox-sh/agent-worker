@@ -9,6 +9,18 @@
 
 > The `agent-worker` serves as the proactive intelligence layer of the Hoox trading ecosystem. Rather than waiting for webhooks, it runs continuously on a cron schedule to monitor portfolio health, enforce risk limits, and optimize position exits.
 
+---
+
+## About
+
+This worker is part of the **[Hoox Trading System](https://github.com/jango-blockchained/hoox-setup)** - a zero-latency edge trading ecosystem. The `agent-worker` provides:
+
+- **AI Risk Management**: Monitors positions and enforces trailing stops via LLaMA 3
+- **Multi-Provider AI**: Supports Workers AI, OpenAI, Anthropic, Google AI with fallback chain
+- **Cron-Driven**: Runs every 5 minutes to assess portfolio health
+- **Global Kill Switch**: Automatically halts trading if max daily drawdown is breached
+- **Smart Exits**: Scales out of profitable trades and manages position lifecycle
+
 ## ✨ Core Capabilities
 
 | Feature                        | Description                                                                                                                                   |
