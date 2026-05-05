@@ -17,6 +17,26 @@ import { listPromptTemplates } from './ai/prompts';
 
 const logger = createLogger({ service: 'agent-worker', module: 'router' });
 
+// Analytics tracking helper
+async function trackAnalytics(
+  env: Env,
+  endpoint: string,
+  body: Record<string, any>
+): Promise<void> {
+  if (!env.ANALYTICS_SERVICE) return;
+  try {
+    await env.ANALYTICS_SERVICE.fetch(
+      new Request("http://analytics-service" + endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }) as any
+    );
+  } catch (e) {
+    console.error("Analytics tracking failed:", e);
+  }
+}
+
 async function route(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
   // Auth check (skip for health in some deployments — adjust as needed)
   const authResponse = await requireAuth(request, env);
@@ -94,7 +114,22 @@ async function route(request: Request, env: Env, _ctx: ExecutionContext): Promis
 }
 
 export default {
-  fetch: withRequestLog(route, { service: 'agent-worker', module: 'router' }),
+  fetch: withRequestLog(async (request: Request, env: Env, ctx: ExecutionContext): Promise<Response> => {
+    const startTime = Date.now();
+    const url = new URL(request.url);
+    const response = await route(request, env, ctx);
+    const latencyMs = Date.now() - startTime;
+
+    // Track API call analytics (non-blocking)
+    trackAnalytics(env, "/track/api-call", {
+      worker: "agent-worker",
+      endpoint: url.pathname,
+      latencyMs,
+      success: response.ok,
+    });
+
+    return response;
+  }, { service: 'agent-worker', module: 'router' }),
 
   async scheduled(
     _controller: ScheduledController,
@@ -105,5 +140,15 @@ export default {
     // Delegate to housekeeping handler internally
     const req = new Request('http://localhost/agent/housekeeping', { method: 'POST' });
     await handleHousekeeping(req, env);
+
+    // Track worker performance
+    trackAnalytics(env, "/track/worker-perf", {
+      data: {
+        worker: "agent-worker",
+        requests: 1,
+        errors: 0,
+        duration: 0,
+      },
+    });
   },
 };

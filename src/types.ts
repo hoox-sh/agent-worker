@@ -119,6 +119,7 @@ export interface Env {
   D1_SERVICE: Fetcher;
   TRADE_SERVICE: Fetcher;
   TELEGRAM_SERVICE: Fetcher;
+  ANALYTICS_SERVICE?: Fetcher;
   INTERNAL_API_KEY: string;
 }
 
