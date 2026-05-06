@@ -11,35 +11,35 @@ describe('checkInternalAuth', () => {
 		};
 	});
 
-	test('returns error when no key configured', async () => {
+	test('returns error when no key configured', () => {
 		mockEnv.AGENT_INTERNAL_KEY = undefined;
 		const request = new Request('http://example.com/test');
-		const result = await checkInternalAuth(request, mockEnv);
+		const result = checkInternalAuth(request, mockEnv, 'AGENT_INTERNAL_KEY');
 		expect(result.authorized).toBe(false);
 		expect(result.error).toBe('AGENT_INTERNAL_KEY not configured');
 	});
 
-	test('returns error when no key provided', async () => {
+	test('returns error when no key provided', () => {
 		const request = new Request('http://example.com/test');
-		const result = await checkInternalAuth(request, mockEnv);
+		const result = checkInternalAuth(request, mockEnv, 'AGENT_INTERNAL_KEY');
 		expect(result.authorized).toBe(false);
 		expect(result.error).toBe('Unauthorized');
 	});
 
-	test('returns error when key mismatch', async () => {
+	test('returns error when key mismatch', () => {
 		const request = new Request('http://example.com/test', {
 			headers: { 'X-Internal-Auth-Key': 'wrong-key' },
 		});
-		const result = await checkInternalAuth(request, mockEnv);
+		const result = checkInternalAuth(request, mockEnv, 'AGENT_INTERNAL_KEY');
 		expect(result.authorized).toBe(false);
 		expect(result.error).toBe('Unauthorized');
 	});
 
-	test('returns authorized when key matches', async () => {
+	test('returns authorized when key matches', () => {
 		const request = new Request('http://example.com/test', {
 			headers: { 'X-Internal-Auth-Key': 'test-key' },
 		});
-		const result = await checkInternalAuth(request, mockEnv);
+		const result = checkInternalAuth(request, mockEnv, 'AGENT_INTERNAL_KEY');
 		expect(result.authorized).toBe(true);
 	});
 });

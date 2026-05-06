@@ -2,6 +2,11 @@ import { ExecutionContext, ScheduledEvent } from '@cloudflare/workers-types';
 import { ProviderManager, createProviderManager } from './providers';
 import { AIRequest } from './types';
 import { ALL_MODELS, getModelInfo } from './models';
+import { checkInternalAuth as _checkInternalAuth } from '@hoox/shared/middleware';
+import { Errors, createJsonResponse } from '@hoox/shared/errors';
+
+// Re-export for backward compatibility with tests
+export const checkInternalAuth = _checkInternalAuth;
 
 export interface Env {
 	D1_SERVICE: Fetcher;
@@ -19,18 +24,6 @@ function getProviderManager(env: Env): ProviderManager {
 		providerManager = createProviderManager(env);
 	}
 	return providerManager;
-}
-
-export async function checkInternalAuth(request: Request, env: Env): Promise<{ authorized: boolean; error?: string }> {
-	const internalKey = env.AGENT_INTERNAL_KEY;
-	if (!internalKey) {
-		return { authorized: false, error: 'AGENT_INTERNAL_KEY not configured' };
-	}
-	const providedKey = request.headers.get('X-Internal-Auth-Key');
-	if (!providedKey || providedKey !== internalKey) {
-		return { authorized: false, error: 'Unauthorized' };
-	}
-	return { authorized: true };
 }
 
 export async function fetchMarkPrice(exchange: string, symbol: string): Promise<number | null> {
@@ -77,12 +70,9 @@ export default {
 
 		// Protect admin/control endpoints with internal auth
 		if (url.pathname.startsWith('/agent/') && url.pathname !== '/agent/health') {
-			const auth = await checkInternalAuth(request, env);
+			const auth = checkInternalAuth(request, env, 'AGENT_INTERNAL_KEY');
 			if (!auth.authorized) {
-				return new Response(JSON.stringify({ success: false, error: auth.error }), {
-					status: 401,
-					headers: { 'Content-Type': 'application/json' },
-				});
+				return Errors.unauthorized(auth.error);
 			}
 		}
 
@@ -137,10 +127,7 @@ export default {
 					headers: { 'Content-Type': 'application/json' },
 				});
 			} catch (error) {
-				return new Response(JSON.stringify({ success: false, error: String(error) }), {
-					status: 500,
-					headers: { 'Content-Type': 'application/json' },
-				});
+				return Errors.internal(String(error));
 			}
 		}
 
@@ -149,10 +136,7 @@ export default {
 			if (body.trailingStopPercent !== undefined) {
 				await env.CONFIG_KV.put('trade:trailing_stop_percent', body.trailingStopPercent.toString());
 			}
-			return new Response(JSON.stringify({ success: true, message: 'Risk override applied' }), {
-				status: 200,
-				headers: { 'Content-Type': 'application/json' },
-			});
+			return createJsonResponse({ success: true, message: 'Risk override applied' });
 		}
 
 		if (request.method === 'GET' && url.pathname === '/agent/status') {
@@ -192,10 +176,7 @@ export default {
 		if (request.method === 'POST' && url.pathname === '/agent/config') {
 			const body: any = await request.json();
 			const updated = await pm.updateConfig(body);
-			return new Response(JSON.stringify({ success: true, config: updated }), {
-				status: 200,
-				headers: { 'Content-Type': 'application/json' },
-			});
+			return createJsonResponse({ success: true, config: updated });
 		}
 
 		if (request.method === 'POST' && url.pathname === '/agent/test-model') {
