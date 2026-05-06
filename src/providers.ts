@@ -25,8 +25,8 @@ export class ProviderManager {
 				await this.env.CONFIG_KV.put('agent:config', JSON.stringify(DEFAULT_AGENT_CONFIG));
 				this.config = DEFAULT_AGENT_CONFIG;
 			}
-		} catch (e) {
-			console.error('Failed to load agent config:', e);
+	} catch (error: unknown) {
+		console.error('Failed to load agent config:', error);
 			this.config = DEFAULT_AGENT_CONFIG;
 		}
 
@@ -57,8 +57,8 @@ export class ProviderManager {
 					return result;
 				}
 				lastError = result.error || 'Unknown error';
-			} catch (e: any) {
-				lastError = e.message || String(e);
+			} catch (error: unknown) {
+				lastError = error instanceof Error ? error.message : String(error);
 				console.warn(`Provider ${provider} failed:`, lastError);
 			}
 		}
@@ -119,10 +119,10 @@ export class ProviderManager {
 				model,
 				latencyMs: response?._metadata?.latency,
 			};
-		} catch (e: any) {
+		} catch (error: unknown) {
 			return {
 				success: false,
-				error: e.message || 'Workers AI failed',
+				error: error instanceof Error ? error.message : 'Workers AI failed',
 				provider: 'workers-ai',
 				model,
 			};
@@ -166,8 +166,8 @@ export class ProviderManager {
 				model,
 				latencyMs: data._metadata?.latency,
 			};
-		} catch (e: any) {
-			return { success: false, error: e.message || 'OpenAI request failed', provider: 'openai', model };
+		} catch (error: unknown) {
+			return { success: false, error: error instanceof Error ? error.message : 'OpenAI request failed', provider: 'openai', model };
 		}
 	}
 
@@ -215,8 +215,8 @@ export class ProviderManager {
 				model,
 				latencyMs: data._metadata?.latency,
 			};
-		} catch (e: any) {
-			return { success: false, error: e.message || 'Anthropic request failed', provider: 'anthropic', model };
+		} catch (error: unknown) {
+			return { success: false, error: error instanceof Error ? error.message : 'Anthropic request failed', provider: 'anthropic', model };
 		}
 	}
 
@@ -256,8 +256,8 @@ export class ProviderManager {
 				model,
 				latencyMs: data._metadata?.latency,
 			};
-		} catch (e: any) {
-			return { success: false, error: e.message || 'Google request failed', provider: 'google', model };
+		} catch (error: unknown) {
+			return { success: false, error: error instanceof Error ? error.message : 'Google request failed', provider: 'google', model };
 		}
 	}
 
@@ -281,8 +281,8 @@ export class ProviderManager {
 			}
 
 			return { success: false, error: 'Embedding not supported for this provider', provider, model: '' };
-		} catch (e: any) {
-			return { success: false, error: e.message || 'Embedding failed', provider, model: '' };
+		} catch (error: unknown) {
+			return { success: false, error: error instanceof Error ? error.message : 'Embedding failed', provider, model: '' };
 		}
 	}
 
@@ -301,8 +301,8 @@ export class ProviderManager {
 					latency: result.success ? Date.now() - start : undefined,
 					error: result.error,
 				};
-			} catch (e: any) {
-				status[provider] = { healthy: false, error: e.message };
+			} catch (error: unknown) {
+				status[provider] = { healthy: false, error: error instanceof Error ? error.message : String(error) };
 			}
 		}
 
