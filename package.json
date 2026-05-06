@@ -13,9 +13,9 @@
 		"test": "bun test",
 		"test:watch": "bun test --watch"
 	},
-	"devDependencies": {
-		"@cloudflare/workers-types": "^4.20260420.1",
-		"typescript": "^5.9.3",
-		"wrangler": "4"
-	}
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260420.1",
+    "typescript": "^5.9.3",
+    "wrangler": "4"
+  },
 }
