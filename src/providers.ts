@@ -1,4 +1,5 @@
 import { AIRequest, AIResponse, AgentConfig, DEFAULT_AGENT_CONFIG, ProviderName, ProviderResult } from './types';
+import { KVKeys } from '@jango-blockchained/hoox-shared/kvKeys';
 
 export class ProviderManager {
 	private env: any;
@@ -25,8 +26,8 @@ export class ProviderManager {
 				await this.env.CONFIG_KV.put('agent:config', JSON.stringify(DEFAULT_AGENT_CONFIG));
 				this.config = DEFAULT_AGENT_CONFIG;
 			}
-	} catch (error: unknown) {
-		console.error('Failed to load agent config:', error);
+		} catch (error: unknown) {
+			console.error('Failed to load agent config:', error);
 			this.config = DEFAULT_AGENT_CONFIG;
 		}
 
@@ -131,7 +132,7 @@ export class ProviderManager {
 
 	private async runOpenAI(request: AIRequest, config: AgentConfig): Promise<ProviderResult> {
 		const model = request.model || config.modelMap['openai'];
-		const apiKey = await this.env.CONFIG_KV.get('agent:openai_key');
+		const apiKey = await this.env.CONFIG_KV.get(KVKeys.KV_AGENT_OPENAI_KEY);
 		const baseUrl = (await this.env.AI.gateway?.('aig').getUrl?.('openai')) || 'https://gateway.ai.cloudflare.com/v1/workers-ai';
 
 		if (!apiKey) {
@@ -173,7 +174,7 @@ export class ProviderManager {
 
 	private async runAnthropic(request: AIRequest, config: AgentConfig): Promise<ProviderResult> {
 		const model = request.model || config.modelMap['anthropic'];
-		const apiKey = await this.env.CONFIG_KV.get('agent:anthropic_key');
+		const apiKey = await this.env.CONFIG_KV.get(KVKeys.KV_AGENT_ANTHROPIC_KEY);
 
 		if (!apiKey) {
 			return { success: false, error: 'Anthropic API key not configured', provider: 'anthropic', model };
@@ -222,7 +223,7 @@ export class ProviderManager {
 
 	private async runGoogle(request: AIRequest, config: AgentConfig): Promise<ProviderResult> {
 		const model = request.model || config.modelMap['google'];
-		const apiKey = await this.env.CONFIG_KV.get('agent:google_key');
+		const apiKey = await this.env.CONFIG_KV.get(KVKeys.KV_AGENT_GOOGLE_KEY);
 
 		if (!apiKey) {
 			return { success: false, error: 'Google API key not configured', provider: 'google', model };

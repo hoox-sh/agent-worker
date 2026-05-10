@@ -190,7 +190,7 @@ describe('processRoutine error paths', () => {
 			return Promise.resolve({ ok: true, json: vi.fn().mockResolvedValue({}) });
 		});
 		await worker.processRoutine(mockEnv);
-		
+
 		globalThis.fetch = originalFetch;
 	});
 });
