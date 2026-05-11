@@ -1,14 +1,13 @@
 import { ExecutionContext, ScheduledEvent } from '@cloudflare/workers-types';
 import { ProviderManager, createProviderManager } from './providers';
 import { AIRequest } from './types';
-import { ALL_MODELS, getModelInfo } from './models';
+import { ALL_MODELS } from './models';
 import { checkInternalAuth as _checkInternalAuth } from '@jango-blockchained/hoox-shared/middleware';
 import { Errors, createJsonResponse } from '@jango-blockchained/hoox-shared/errors';
 import { healthCheck } from '@jango-blockchained/hoox-shared/health';
 import { KVKeys } from '@jango-blockchained/hoox-shared/kvKeys';
 import { createRouter } from '@jango-blockchained/hoox-shared/router';
 import { withRequestLog } from '@jango-blockchained/hoox-shared/middleware';
-import type { Handler } from '@jango-blockchained/hoox-shared/types/router';
 
 // Re-export for backward compatibility with tests
 export const checkInternalAuth = _checkInternalAuth;
@@ -308,6 +307,11 @@ router.post('/agent/embedding', async (request: Request, env: Env, ctx: Executio
 			headers: { 'Content-Type': 'application/json' },
 		},
 	);
+});
+
+// Root endpoint
+router.get('/', async () => {
+  return new Response('Agent Worker is running');
 });
 
 router.get('/health', async (request: Request, env: Env, ctx: ExecutionContext) => {

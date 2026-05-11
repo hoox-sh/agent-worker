@@ -50,19 +50,36 @@ describe('fetchMarkPrice', () => {
 		expect(result).toBeNull();
 	});
 
-	test.skip('fetches binance mark price', async () => {
+	test('fetches binance mark price (mocked)', async () => {
+		const originalFetch = globalThis.fetch;
+		globalThis.fetch = vi.fn().mockResolvedValue(
+			new Response(JSON.stringify({ markPrice: '52000' }))
+		) as any;
 		const result = await fetchMarkPrice('binance', 'BTCUSDT');
-		expect(result).toBeGreaterThan(0);
+		expect(result).toBe(52000);
+		globalThis.fetch = originalFetch;
 	});
 
-	test.skip('fetches bybit mark price', async () => {
+	test('fetches bybit mark price (mocked)', async () => {
+		const originalFetch = globalThis.fetch;
+		globalThis.fetch = vi.fn().mockResolvedValue(
+			new Response(
+				JSON.stringify({ result: { list: [{ markPrice: '51000' }] } })
+			)
+		) as any;
 		const result = await fetchMarkPrice('bybit', 'BTCUSDT');
-		expect(result).toBeGreaterThan(0);
+		expect(result).toBe(51000);
+		globalThis.fetch = originalFetch;
 	});
 
-	test.skip('fetches mexc mark price', async () => {
+	test('fetches mexc mark price (mocked)', async () => {
+		const originalFetch = globalThis.fetch;
+		globalThis.fetch = vi.fn().mockResolvedValue(
+			new Response(JSON.stringify({ data: { fairPrice: '50500' } }))
+		) as any;
 		const result = await fetchMarkPrice('mexc', 'BTCUSDT');
-		expect(result).toBeGreaterThan(0);
+		expect(result).toBe(50500);
+		globalThis.fetch = originalFetch;
 	});
 });
 
