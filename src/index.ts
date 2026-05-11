@@ -62,7 +62,7 @@ export async function fetchMarkPrice(exchange: string, symbol: string): Promise<
 				}
 			}
 		}
-	} catch (error) {
+	} catch (error: unknown) {
 		console.error(`Failed to fetch mark price for ${symbol} on ${exchange}:`, error);
 	}
 	return null;
@@ -124,8 +124,8 @@ router.post('/agent/housekeeping', async (request: Request, env: Env, ctx: Execu
 			status: 200,
 			headers: { 'Content-Type': 'application/json' },
 		});
-	} catch (error) {
-		return Errors.internal(String(error));
+	} catch (error: unknown) {
+		return Errors.internal(error);
 	}
 });
 
@@ -367,7 +367,7 @@ export default {
 						console.log(`[ActiveTradeManagement] Using account value from balances: ${accountValue}`);
 					}
 				}
-			} catch (err) {
+			} catch (err: unknown) {
 				console.warn(`[ActiveTradeManagement] Failed to fetch account value from D1, using default: ${err}`);
 			}
 
@@ -477,7 +477,7 @@ export default {
 							}
 						}
 					}
-				} catch (e) {
+				} catch (e: unknown) {
 					console.error('AI summarization failed:', e);
 				}
 			}
@@ -553,7 +553,7 @@ async function sendCloseOrder(env: Env, position: any, qtyOverride?: number) {
 		if (!res.ok) {
 			console.error(`Failed to close position ${position.symbol}:`, await res.text());
 		}
-	} catch (e) {
+	} catch (e: unknown) {
 		console.error(`Error closing position ${position.symbol}:`, e);
 	}
 }
