@@ -29,9 +29,7 @@ function createMockEnv(overrides?: Record<string, unknown>): any {
 			getWithMetadata: mock(() => Promise.resolve({ value: null, metadata: null })),
 		},
 		AI: {
-			run: mock((_model: string, _options: unknown) =>
-				Promise.resolve({ response: 'AI response text' }),
-			),
+			run: mock((_model: string, _options: unknown) => Promise.resolve({ response: 'AI response text' })),
 			gateway: undefined,
 		},
 		...overrides,
@@ -64,10 +62,7 @@ describe('ProviderManager', () => {
 			const pm = createProviderManager(env);
 			await pm.loadConfig();
 
-			expect(env.CONFIG_KV.put).toHaveBeenCalledWith(
-				'agent:config',
-				expect.any(String),
-			);
+			expect(env.CONFIG_KV.put).toHaveBeenCalledWith('agent:config', expect.any(String));
 			const storedJson = env.CONFIG_KV.put.mock.calls[0][1];
 			const stored = JSON.parse(storedJson);
 			expect(stored.defaultProvider).toBe('workers-ai');
@@ -129,17 +124,17 @@ describe('ProviderManager', () => {
 			expect(updated.defaultProvider).toBe('workers-ai'); // unchanged
 		});
 
-	test('should persist updated config to KV', async () => {
-		const env = createMockEnv();
-		const pm = createProviderManager(env);
-		await pm.updateConfig({ defaultProvider: 'anthropic' });
+		test('should persist updated config to KV', async () => {
+			const env = createMockEnv();
+			const pm = createProviderManager(env);
+			await pm.updateConfig({ defaultProvider: 'anthropic' });
 
-		// put is called twice: once from loadConfig (default), once from updateConfig
-		// We want the LAST call (from updateConfig)
-		const lastCallIndex = env.CONFIG_KV.put.mock.calls.length - 1;
-		const stored = JSON.parse(env.CONFIG_KV.put.mock.calls[lastCallIndex][1]);
-		expect(stored.defaultProvider).toBe('anthropic');
-	});
+			// put is called twice: once from loadConfig (default), once from updateConfig
+			// We want the LAST call (from updateConfig)
+			const lastCallIndex = env.CONFIG_KV.put.mock.calls.length - 1;
+			const stored = JSON.parse(env.CONFIG_KV.put.mock.calls[lastCallIndex][1]);
+			expect(stored.defaultProvider).toBe('anthropic');
+		});
 
 		test('should update in-memory cache', async () => {
 			const env = createMockEnv();
@@ -211,11 +206,7 @@ describe('ProviderManager', () => {
 			});
 
 			expect(result.success).toBe(true);
-			expect(env.AI.run).toHaveBeenCalledWith(
-				'@cf/meta/llama-3.2-3b-instruct',
-				expect.any(Object),
-				expect.any(Object),
-			);
+			expect(env.AI.run).toHaveBeenCalledWith('@cf/meta/llama-3.2-3b-instruct', expect.any(Object), expect.any(Object));
 		});
 	});
 

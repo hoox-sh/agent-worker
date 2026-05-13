@@ -1,9 +1,9 @@
-import { createLogger } from "@jango-blockchained/hoox-shared/middleware";
+import { createLogger } from '@jango-blockchained/hoox-shared/middleware';
 import { AIRequest, AIResponse, AgentConfig, DEFAULT_AGENT_CONFIG, ProviderName, ProviderResult } from './types';
 import { KVKeys } from '@jango-blockchained/hoox-shared/kvKeys';
 
 export class ProviderManager {
-	private logger = createLogger({ service: "agent-worker", module: "providers" });
+	private logger = createLogger({ service: 'agent-worker', module: 'providers' });
 	private env: any;
 	private config: AgentConfig | null = null;
 	private configLoading = false;

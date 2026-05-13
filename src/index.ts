@@ -302,7 +302,7 @@ router.post('/agent/embedding', async (request: Request, env: Env, ctx: Executio
 
 // Root endpoint
 router.get('/', async () => {
-  return new Response('Agent Worker is running');
+	return new Response('Agent Worker is running');
 });
 
 router.get('/health', async (request: Request, env: Env, ctx: ExecutionContext) => {
