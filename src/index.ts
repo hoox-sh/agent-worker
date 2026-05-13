@@ -3,32 +3,23 @@ import { ProviderManager, createProviderManager } from './providers';
 import { AIRequest } from './types';
 import { ALL_MODELS } from './models';
 import { checkInternalAuth as _checkInternalAuth } from '@jango-blockchained/hoox-shared/middleware';
-import { Errors, createJsonResponse } from '@jango-blockchained/hoox-shared/errors';
+import { Errors, createJsonResponse, toError } from '@jango-blockchained/hoox-shared/errors';
 import { healthCheck } from '@jango-blockchained/hoox-shared/health';
 import { KVKeys } from '@jango-blockchained/hoox-shared/kvKeys';
 import { createRouter } from '@jango-blockchained/hoox-shared/router';
-import { withRequestLog } from '@jango-blockchained/hoox-shared/middleware';
+import { createLogger, withRequestLog } from '@jango-blockchained/hoox-shared/middleware';
 
 // Re-export for backward compatibility with tests
 export const checkInternalAuth = _checkInternalAuth;
 
-export interface Env {
-	D1_SERVICE: Fetcher;
-	TRADE_SERVICE: Fetcher;
-	TELEGRAM_SERVICE: Fetcher;
-	CONFIG_KV: KVNamespace;
-	AI: any;
-	AGENT_INTERNAL_KEY?: string;
+const logger = createLogger({ service: 'agent-worker' });
+
+export interface Env extends Cloudflare.Env {
 	[key: string]: unknown;
 }
 
-let providerManager: ProviderManager | null = null;
-
 function getProviderManager(env: Env): ProviderManager {
-	if (!providerManager) {
-		providerManager = createProviderManager(env);
-	}
-	return providerManager;
+	return createProviderManager(env);
 }
 
 export async function fetchMarkPrice(exchange: string, symbol: string): Promise<number | null> {
@@ -63,7 +54,7 @@ export async function fetchMarkPrice(exchange: string, symbol: string): Promise<
 			}
 		}
 	} catch (error: unknown) {
-		console.error(`Failed to fetch mark price for ${symbol} on ${exchange}:`, error);
+		logger.error(`Failed to fetch mark price for ${symbol} on ${exchange}`, { error: toError(error) });
 	}
 	return null;
 }
@@ -327,28 +318,28 @@ export default {
 	),
 
 	async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
-		console.log('Agent Worker cron triggered at:', event.cron, event.scheduledTime);
+		logger.info('Agent Worker cron triggered', { cron: event.cron, scheduledTime: event.scheduledTime });
 		ctx.waitUntil(runHousekeeping(env));
 		ctx.waitUntil(this.processRoutine(env));
 	},
 
 	async processRoutine(env: Env) {
 		try {
-			console.log('Starting agent processing routine...');
+			logger.info('Starting agent processing routine...');
 
 			const positionsRes = await env.D1_SERVICE.fetch(new Request('http://localhost/api/dashboard/positions'));
 			if (!positionsRes.ok) {
-				console.error('Failed to fetch positions from D1_SERVICE:', await positionsRes.text());
+				logger.error('Failed to fetch positions from D1_SERVICE', { status: await positionsRes.text() });
 				return;
 			}
 
 			const positionsData: any = await positionsRes.json();
 			const openPositions = positionsData.positions || [];
-			console.log(`Found ${openPositions.length} open positions.`);
+			logger.info(`Found ${openPositions.length} open positions.`);
 
 			const killSwitch = await env.CONFIG_KV.get(KVKeys.KV_TRADE_KILL_SWITCH);
 			if (killSwitch === 'true') {
-				console.warn('Global kill switch is active. Skipping active trade management.');
+				logger.warn('Global kill switch is active. Skipping active trade management.');
 				return;
 			}
 
@@ -364,25 +355,25 @@ export default {
 					const balancesData = (await balancesRes.json()) as { totalBalance?: number };
 					if (balancesData.totalBalance && balancesData.totalBalance > 0) {
 						accountValue = balancesData.totalBalance;
-						console.log(`[ActiveTradeManagement] Using account value from balances: ${accountValue}`);
+						logger.info(`[ActiveTradeManagement] Using account value from balances: ${accountValue}`);
 					}
 				}
 			} catch (err: unknown) {
-				console.warn(`[ActiveTradeManagement] Failed to fetch account value from D1, using default: ${err}`);
+				logger.warn(`[ActiveTradeManagement] Failed to fetch account value from D1, using default: ${err}`);
 			}
 
 			for (const position of openPositions) {
-				console.log(`Analyzing position: ${position.symbol} (${position.side}) - Quantity: ${position.size}`);
+				logger.info(`Analyzing position: ${position.symbol} (${position.side}) - Quantity: ${position.size}`);
 
 				const markPrice = await fetchMarkPrice(position.exchange, position.symbol);
 
 				if (markPrice !== null) {
-					console.log(`${position.exchange} ${position.symbol} Mark Price: ${markPrice}`);
+					logger.info(`${position.exchange} ${position.symbol} Mark Price: ${markPrice}`);
 					if (position.entry_price && position.size) {
 						const priceDiff = position.side === 'LONG' ? markPrice - position.entry_price : position.entry_price - markPrice;
 						const pnl = priceDiff * position.size;
 						totalUnrealizedPnl += pnl;
-						console.log(`Unrealized PnL for ${position.symbol}: ${pnl}`);
+						logger.info(`Unrealized PnL for ${position.symbol}: ${pnl}`);
 
 						const wmKey = `trade:watermark:${position.exchange}:${position.symbol}:${position.side}`;
 						const currentWmStr = await env.CONFIG_KV.get(wmKey);
@@ -402,7 +393,7 @@ export default {
 						if (position.side === 'SHORT' && markPrice > newWm * (1 + trailingStopPercent)) triggerStop = true;
 
 						if (triggerStop) {
-							console.log(`TRAILING STOP TRIGGERED for ${position.symbol}! Watermark: ${newWm}, Current: ${markPrice}`);
+							logger.info(`TRAILING STOP TRIGGERED for ${position.symbol}! Watermark: ${newWm}, Current: ${markPrice}`);
 							await sendCloseOrder(env, position);
 						}
 
@@ -415,7 +406,7 @@ export default {
 							const tpKey = `trade:tp_hit:${position.exchange}:${position.symbol}:${position.side}`;
 							const alreadyScaled = await env.CONFIG_KV.get(tpKey);
 							if (!alreadyScaled) {
-								console.log(`TAKE PROFIT TRIGGERED for ${position.symbol}! Scaling out 50%.`);
+								logger.info(`TAKE PROFIT TRIGGERED for ${position.symbol}! Scaling out 50%.`);
 								await sendCloseOrder(env, position, position.size / 2);
 								await env.CONFIG_KV.put(tpKey, 'true');
 							}
@@ -429,7 +420,7 @@ export default {
 
 			const pnlPercent = (totalUnrealizedPnl / accountValue) * 100;
 			if (pnlPercent <= maxDrawdownPercent) {
-				console.warn(`GLOBAL RISK BREACH: PnL is ${pnlPercent}%, limit is ${maxDrawdownPercent}%. Engaging kill switch.`);
+				logger.warn(`GLOBAL RISK BREACH: PnL is ${pnlPercent}%, limit is ${maxDrawdownPercent}%. Engaging kill switch.`);
 				await env.CONFIG_KV.put(KVKeys.KV_TRADE_KILL_SWITCH, 'true');
 
 				if (env.TELEGRAM_SERVICE) {
@@ -464,7 +455,7 @@ export default {
 
 						const result = await pm.run(aiRequest);
 						if (result.success && result.data?.response) {
-							console.log('AI System Health Summary:', result.data.response);
+							logger.info('AI System Health Summary', { response: result.data.response });
 							await env.CONFIG_KV.put(KVKeys.KV_DASHBOARD_AI_HEALTH_SUMMARY, result.data.response);
 
 							if (env.TELEGRAM_SERVICE) {
@@ -478,11 +469,11 @@ export default {
 						}
 					}
 				} catch (e: unknown) {
-					console.error('AI summarization failed:', e);
+					logger.error('AI summarization failed', { error: toError(e) });
 				}
 			}
 		} catch (error: unknown) {
-			console.error('Error in agent processing routine:', error);
+			logger.error('Error in agent processing routine', { error: toError(error) });
 		}
 	},
 };
@@ -525,9 +516,9 @@ async function runHousekeeping(env: Env): Promise<void> {
 		}
 
 		await env.CONFIG_KV.put(KVKeys.KV_HOUSEKEEPING_LAST_CHECK, JSON.stringify(results));
-		console.log('Housekeeping check completed:', JSON.stringify(results));
+		logger.info('Housekeeping check completed', { results });
 	} catch (error: unknown) {
-		console.error('Housekeeping check failed:', error);
+		logger.error('Housekeeping check failed', { error: toError(error) });
 	}
 }
 
@@ -542,18 +533,28 @@ async function sendCloseOrder(env: Env, position: any, qtyOverride?: number) {
 	};
 
 	try {
-		console.log(`Sending close order to TRADE_SERVICE:`, payload);
+		logger.info('Sending close order to TRADE_SERVICE', { payload });
+
+		const internalKey = env.INTERNAL_KEY_BINDING || env.AGENT_INTERNAL_KEY;
+		if (!internalKey) {
+			logger.error('INTERNAL_KEY_BINDING not configured for close order');
+			return;
+		}
+
 		const res = await env.TRADE_SERVICE.fetch(
 			new Request('http://trade-worker/webhook', {
 				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
+				headers: {
+					'Content-Type': 'application/json',
+					'X-Internal-Auth-Key': internalKey,
+				},
 				body: JSON.stringify(payload),
 			}),
 		);
 		if (!res.ok) {
-			console.error(`Failed to close position ${position.symbol}:`, await res.text());
+			logger.error(`Failed to close position ${position.symbol}`, { status: await res.text() });
 		}
 	} catch (e: unknown) {
-		console.error(`Error closing position ${position.symbol}:`, e);
+		logger.error(`Error closing position ${position.symbol}`, { error: toError(e) });
 	}
 }

@@ -1,7 +1,9 @@
+import { createLogger } from "@jango-blockchained/hoox-shared/middleware";
 import { AIRequest, AIResponse, AgentConfig, DEFAULT_AGENT_CONFIG, ProviderName, ProviderResult } from './types';
 import { KVKeys } from '@jango-blockchained/hoox-shared/kvKeys';
 
 export class ProviderManager {
+	private logger = createLogger({ service: "agent-worker", module: "providers" });
 	private env: any;
 	private config: AgentConfig | null = null;
 	private configLoading = false;
@@ -27,7 +29,7 @@ export class ProviderManager {
 				this.config = DEFAULT_AGENT_CONFIG;
 			}
 		} catch (error: unknown) {
-			console.error('Failed to load agent config:', error);
+			this.logger.error('Failed to load agent config', { error });
 			this.config = DEFAULT_AGENT_CONFIG;
 		}
 
@@ -60,7 +62,7 @@ export class ProviderManager {
 				lastError = result.error || 'Unknown error';
 			} catch (error: unknown) {
 				lastError = error instanceof Error ? error.message : String(error);
-				console.warn(`Provider ${provider} failed:`, lastError);
+				this.logger.warn('Provider failed', { provider, error: lastError });
 			}
 		}
 

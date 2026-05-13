@@ -8,6 +8,8 @@ declare namespace Cloudflare {
 	interface Env {
 		CONFIG_KV: KVNamespace;
 		AI: Ai;
+		AGENT_INTERNAL_KEY: string;
+		INTERNAL_KEY_BINDING: string;
 		D1_SERVICE: Fetcher /* d1-worker */;
 		TRADE_SERVICE: Fetcher /* trade-worker */;
 		TELEGRAM_SERVICE: Fetcher /* telegram-worker */;
