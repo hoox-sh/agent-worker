@@ -1,222 +1,26 @@
-# 🧠 agent-worker - Hoox Autonomous AI & Risk Manager
+# @hoox/agent-worker
 
-<div align="center">
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/) [![Runtime](https://img.shields.io/badge/Runtime-Bun-black?logo=bun)](https://bun.sh) [![Platform](https://img.shields.io/badge/Platform-Cloudflare%C2%AE%20Workers-orange?logo=cloudflare)](https://workers.cloudflare.com/) [![License](https://img.shields.io/badge/License-CC%20BY%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by/4.0/)
 
-[![Language](https://img.shields.io/badge/Language-TypeScript-blue.svg)](https://www.typescriptlang.org/)
-[![Platform](https://img.shields.io/badge/Platform-Cloudflare%20Workers-orange?logo=cloudflare)](https://workers.cloudflare.com/)
+AI risk manager — runs every 5 minutes to monitor positions, move trailing stops, and flip the kill switch.
 
-</div>
+## For CLI Users
 
-> The `agent-worker` serves as the proactive intelligence layer of the Hoox trading ecosystem. Rather than waiting for webhooks, it runs continuously on a cron schedule to monitor portfolio health, enforce risk limits, and optimize position exits.
+Use this worker indirectly when you run `hoox` commands:
 
----
+- `hoox config kv set trade:max_daily_drawdown_percent 10` — adjust risk limit
+- `hoox monitor kill-switch show` — check kill switch status
 
-## About
+→ [AI Risk Manager Guide](../../docs/concepts/ai-risk-manager.md) · [CLI Reference](../../docs/reference/cli-commands.md)
 
-This worker is part of the **[Hoox Trading System](https://github.com/jango-blockchained/hoox-setup)** - a zero-latency edge trading ecosystem. The `agent-worker` provides:
+## For Operators
 
-- **AI Risk Management**: Monitors positions and enforces trailing stops via LLaMA 3
-- **Multi-Provider AI**: Supports Workers AI, OpenAI, Anthropic, Google AI with fallback chain
-- **Cron-Driven**: Runs every 5 minutes to assess portfolio health
-- **Global Kill Switch**: Automatically halts trading if max daily drawdown is breached
-- **Smart Exits**: Scales out of profitable trades and manages position lifecycle
+This worker provides automated portfolio risk management. It runs on a 5-minute cron trigger, fetches open positions from the D1 worker, evaluates market conditions, enforces trailing stops and take-profit levels, and engages a global kill switch when daily drawdown limits are breached. Supports multi-provider AI (Workers AI, OpenAI, Anthropic, Google) with automatic fallback.
 
-## ✨ Core Capabilities
+→ [Operator Docs](../../docs/devops/workers/agent-worker.md)
 
-| Feature                        | Description                                                                                                                                   |
-| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| ⏱️ **Cron-Driven Observation** | Automatically runs every 5 minutes (`*/5 * * * *`) to fetch live market data from Binance, Bybit, and MEXC.                                   |
-| 🛡️ **Global Kill Switch**      | Calculates total account PnL and instantly locks out the `hoox` gateway from new entries if the `max_daily_drawdown_percent` is breached.     |
-| 🎯 **Dynamic Trailing Stops**  | Stores watermark prices in `CONFIG_KV` and automatically triggers `CLOSE` payloads if the market reverses.                                    |
-| 💸 **Scale-Out Take Profits**  | Detects when a position reaches a specific profit target and automatically sends partial close commands to secure gains.                      |
-| 🤖 **AI System Summarization** | Periodically fetches `system_logs` from the `d1-worker`, analyzes them via LLaMA 3 8B, and sends natural language health reports to Telegram. |
-| 🌐 **Multi-Provider AI**       | Seamlessly switches between Workers AI, OpenAI, Anthropic, and Google AI with automatic fallbacks.                                            |
-| 🧠 **Advanced Models**         | Supports vision, embeddings, reasoning, and code generation models.                                                                           |
+## Development
 
-## 🏗️ Architecture & Flow
-
-1. **Trigger:** Cloudflare® Cron triggers the worker.
-2. **State Sync:** Fetches active `OPEN` positions via the `d1-worker`.
-3. **Market Pulse:** Pings public exchange APIs for the latest `markPrice`.
-4. **Risk Evaluation:** Cross-references current price with KV-stored watermarks and global drawdown limits.
-5. **AI Processing:** Uses configured AI provider with automatic fallback chain.
-6. **Execution:** Dispatches actions to `trade-worker` (closing positions) and `telegram-worker` (alerts) via internal Service Bindings.
-
-## 🚀 Endpoints & Interactions
-
-### Management Endpoints
-
-#### `GET /agent/config`
-
-Returns current agent configuration including provider settings.
-
-```json
-{
-  "success": true,
-  "config": {
-    "defaultProvider": "workers-ai",
-    "fallbackChain": ["workers-ai", "openai"],
-    "modelMap": { ... },
-    "trailingStopPercent": 0.05,
-    "takeProfitPercent": 0.10
-  }
-}
+```bash
+bun test workers/agent-worker
 ```
-
-#### `POST /agent/config`
-
-Update agent configuration at runtime.
-
-```json
-{
-	"defaultProvider": "openai",
-	"fallbackChain": ["openai", "workers-ai", "anthropic"],
-	"modelMap": {
-		"workers-ai": "@cf/meta/llama-3.1-8b-instruct",
-		"openai": "gpt-4o-mini-2024-07-18",
-		"anthropic": "claude-3-haiku-20240307"
-	},
-	"timeoutMs": 30000,
-	"retryCount": 3
-}
-```
-
-#### `GET /agent/models`
-
-Returns all available models from Cloudflare Workers AI and external providers.
-
-#### `POST /agent/test-model`
-
-Test a specific AI model.
-
-```json
-{
-	"prompt": "Say hello",
-	"model": "@cf/meta/llama-3.1-8b-instruct",
-	"provider": "workers-ai"
-}
-```
-
-#### `GET /agent/health`
-
-Returns health status of all configured AI providers.
-
-```json
-{
-	"success": true,
-	"providers": {
-		"workers-ai": { "healthy": true, "latency": 150 },
-		"openai": { "healthy": true, "latency": 200 }
-	}
-}
-```
-
-### AI Interaction Endpoints
-
-#### `POST /agent/chat`
-
-Send a chat request with automatic provider fallback.
-
-```json
-{
-	"prompt": "Analyze BTC market sentiment",
-	"systemPrompt": "You are a professional crypto trading analyst.",
-	"temperature": 0.7,
-	"maxTokens": 500
-}
-```
-
-#### `POST /agent/embedding`
-
-Generate text embeddings using Workers AI embedding models.
-
-```json
-{
-	"text": "Bitcoin price analysis for position sizing",
-	"provider": "workers-ai"
-}
-```
-
-### Legacy Endpoints
-
-#### `POST /agent/risk-override`
-
-Manually enforce or release risk locks.
-
-```json
-{
-	"action": "engage_kill_switch",
-	"reason": "Manual override from dashboard"
-}
-```
-
-#### `GET /agent/status`
-
-Retrieve the real-time health of the agent and active trailing stops.
-
-## 🔧 Configuration
-
-### KV Keys
-
-All configuration is stored in `CONFIG_KV` for real-time adjustments.
-
-| KV Key                                       | Default     | Description                             |
-| -------------------------------------------- | ----------- | --------------------------------------- |
-| `agent:config`                               | JSON object | Main provider configuration             |
-| `agent:openai_key`                           | -           | OpenAI API key                          |
-| `agent:anthropic_key`                        | -           | Anthropic API key                       |
-| `agent:google_key`                           | -           | Google AI API key                       |
-| `trade:max_daily_drawdown_percent`           | `-5`        | Account PnL % that triggers Kill Switch |
-| `trade:kill_switch`                          | `false`     | When `true`, halts all new trades       |
-| `trade:watermark:{exchange}:{symbol}:{side}` | N/A         | High/low watermark                      |
-
-### Default Agent Config
-
-```json
-{
-	"defaultProvider": "workers-ai",
-	"fallbackChain": ["workers-ai", "openai"],
-	"modelMap": {
-		"workers-ai": "@cf/meta/llama-3.1-8b-instruct",
-		"openai": "gpt-4o-mini-2024-07-18",
-		"anthropic": "claude-3-haiku-20240307",
-		"google": "gemini-1.5-flash-002"
-	},
-	"timeoutMs": 30000,
-	"retryCount": 3,
-	"maxDailyDrawdownPercent": -5,
-	"trailingStopPercent": 0.05,
-	"takeProfitPercent": 0.1
-}
-```
-
-### Supported Models
-
-| Task          | Workers AI Model                               |
-| ------------- | ---------------------------------------------- |
-| Chat          | `@cf/meta/llama-3.1-8b-instruct`               |
-| Vision        | `@cf/meta/llama-3.2-11b-vision-instruct`       |
-| Reasoning     | `@cf/deepseek-ai/deepseek-r1-distill-qwen-32b` |
-| Code          | `@cf/qwen/qwen2.5-coder-32b-instruct`          |
-| Embeddings    | `@cf/baai/bge-base-en-v1.5`                    |
-| Summarization | `@cf/facebook/bart-large-cnn`                  |
-
-| Provider  | Models                           |
-| --------- | -------------------------------- |
-| OpenAI    | GPT-4o, GPT-4o-mini, GPT-4 Turbo |
-| Anthropic | Claude 3 Haiku, Sonnet, Opus     |
-| Google    | Gemini 1.5 Flash, Gemini 1.5 Pro |
-
-## 🤝 Internal Service Bindings
-
-The `agent-worker` requires the following bindings to operate:
-
-- `D1_SERVICE`: To fetch open positions and system logs.
-- `TRADE_SERVICE`: To execute trailing stops and profit-taking.
-- `TELEGRAM_SERVICE`: To broadcast AI summaries and emergency alerts.
-- `CONFIG_KV`: For dynamic configuration and state.
-- `AI`: Workers AI binding for inference.
-
----
-
-_Cloudflare® and the Cloudflare logo are trademarks and/or registered trademarks of Cloudflare, Inc. in the United States and other jurisdictions._
