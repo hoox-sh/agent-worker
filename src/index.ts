@@ -85,7 +85,7 @@ const router = createRouter<Env>();
 router.post(
   "/agent/housekeeping",
   async (request: Request, env: Env, ctx: ExecutionContext) => {
-    const authError = requireInternalAuth(request, env, "AGENT_INTERNAL_KEY");
+    const authError = requireInternalAuth(request, env, "INTERNAL_KEY_BINDING");
     if (authError) return authError;
 
     try {
@@ -106,7 +106,12 @@ router.post(
       // Check D1 service
       if (env.D1_SERVICE) {
         try {
-          const d1Res = await serviceFetch(env.D1_SERVICE, "/health", undefined, { method: "GET" });
+          const d1Res = await serviceFetch(
+            env.D1_SERVICE,
+            "/health",
+            undefined,
+            { method: "GET" }
+          );
           results.checks.push({
             service: "D1_SERVICE",
             status: d1Res.ok ? "ok" : "error",
@@ -124,7 +129,12 @@ router.post(
       // Check Trade service
       if (env.TRADE_SERVICE) {
         try {
-          const tradeRes = await serviceFetch(env.TRADE_SERVICE, "/health", undefined, { method: "GET" });
+          const tradeRes = await serviceFetch(
+            env.TRADE_SERVICE,
+            "/health",
+            undefined,
+            { method: "GET" }
+          );
           results.checks.push({
             service: "TRADE_SERVICE",
             status: tradeRes.ok ? "ok" : "error",
@@ -142,7 +152,12 @@ router.post(
       // Check Telegram service
       if (env.TELEGRAM_SERVICE) {
         try {
-          const tgRes = await serviceFetch(env.TELEGRAM_SERVICE, "/health", undefined, { method: "GET" });
+          const tgRes = await serviceFetch(
+            env.TELEGRAM_SERVICE,
+            "/health",
+            undefined,
+            { method: "GET" }
+          );
           results.checks.push({
             service: "TELEGRAM_SERVICE",
             status: tgRes.ok ? "ok" : "error",
@@ -176,7 +191,7 @@ router.post(
 router.post(
   "/agent/risk-override",
   async (request: Request, env: Env, ctx: ExecutionContext) => {
-    const authError = requireInternalAuth(request, env, "AGENT_INTERNAL_KEY");
+    const authError = requireInternalAuth(request, env, "INTERNAL_KEY_BINDING");
     if (authError) return authError;
 
     const body: any = await request.json();
@@ -196,7 +211,7 @@ router.post(
 router.get(
   "/agent/status",
   async (request: Request, env: Env, ctx: ExecutionContext) => {
-    const authError = requireInternalAuth(request, env, "AGENT_INTERNAL_KEY");
+    const authError = requireInternalAuth(request, env, "INTERNAL_KEY_BINDING");
     if (authError) return authError;
 
     const pm = getProviderManager(env);
@@ -223,7 +238,7 @@ router.get(
 router.get(
   "/agent/config",
   async (request: Request, env: Env, ctx: ExecutionContext) => {
-    const authError = requireInternalAuth(request, env, "AGENT_INTERNAL_KEY");
+    const authError = requireInternalAuth(request, env, "INTERNAL_KEY_BINDING");
     if (authError) return authError;
 
     const pm = getProviderManager(env);
@@ -244,7 +259,7 @@ router.get(
 router.post(
   "/agent/config",
   async (request: Request, env: Env, ctx: ExecutionContext) => {
-    const authError = requireInternalAuth(request, env, "AGENT_INTERNAL_KEY");
+    const authError = requireInternalAuth(request, env, "INTERNAL_KEY_BINDING");
     if (authError) return authError;
 
     const body: any = await request.json();
@@ -257,7 +272,7 @@ router.post(
 router.post(
   "/agent/test-model",
   async (request: Request, env: Env, ctx: ExecutionContext) => {
-    const authError = requireInternalAuth(request, env, "AGENT_INTERNAL_KEY");
+    const authError = requireInternalAuth(request, env, "INTERNAL_KEY_BINDING");
     if (authError) return authError;
 
     const body: any = await request.json();
@@ -315,7 +330,7 @@ router.get(
 router.get(
   "/agent/models",
   async (request: Request, env: Env, ctx: ExecutionContext) => {
-    const authError = requireInternalAuth(request, env, "AGENT_INTERNAL_KEY");
+    const authError = requireInternalAuth(request, env, "INTERNAL_KEY_BINDING");
     if (authError) return authError;
 
     return new Response(
@@ -334,7 +349,7 @@ router.get(
 router.post(
   "/agent/chat",
   async (request: Request, env: Env, ctx: ExecutionContext) => {
-    const authError = requireInternalAuth(request, env, "AGENT_INTERNAL_KEY");
+    const authError = requireInternalAuth(request, env, "INTERNAL_KEY_BINDING");
     if (authError) return authError;
 
     const body: any = await request.json();
@@ -371,7 +386,7 @@ router.post(
 router.post(
   "/agent/embedding",
   async (request: Request, env: Env, ctx: ExecutionContext) => {
-    const authError = requireInternalAuth(request, env, "AGENT_INTERNAL_KEY");
+    const authError = requireInternalAuth(request, env, "INTERNAL_KEY_BINDING");
     if (authError) return authError;
 
     const body: any = await request.json();
@@ -425,7 +440,12 @@ export default {
     try {
       logger.info("Starting agent processing routine...");
 
-      const positionsRes = await serviceFetch(env.D1_SERVICE, "/api/dashboard/positions", undefined, { method: "GET" });
+      const positionsRes = await serviceFetch(
+        env.D1_SERVICE,
+        "/api/dashboard/positions",
+        undefined,
+        { method: "GET" }
+      );
       if (!positionsRes.ok) {
         logger.error("Failed to fetch positions from D1_SERVICE", {
           status: await positionsRes.text(),
@@ -452,7 +472,12 @@ export default {
       let accountValue = 10000;
 
       try {
-        const balancesRes = await serviceFetch(env.D1_SERVICE, "/api/dashboard/balances", undefined, { method: "GET" });
+        const balancesRes = await serviceFetch(
+          env.D1_SERVICE,
+          "/api/dashboard/balances",
+          undefined,
+          { method: "GET" }
+        );
         if (balancesRes.ok) {
           const balancesData = (await balancesRes.json()) as {
             totalBalance?: number;
@@ -581,7 +606,12 @@ export default {
       const currentMin = new Date().getMinutes();
       if (currentMin >= 0 && currentMin < 5) {
         try {
-          const systemLogsRes = await serviceFetch(env.D1_SERVICE, "/api/dashboard/logs", undefined, { method: "GET" });
+          const systemLogsRes = await serviceFetch(
+            env.D1_SERVICE,
+            "/api/dashboard/logs",
+            undefined,
+            { method: "GET" }
+          );
           if (systemLogsRes.ok && env.AI) {
             const logsData: any = await systemLogsRes.json();
             const logs = logsData.logs || [];
@@ -641,7 +671,9 @@ async function runHousekeeping(env: Env): Promise<void> {
 
     if (env.D1_SERVICE) {
       try {
-        const d1Res = await serviceFetch(env.D1_SERVICE, "/health", undefined, { method: "GET" });
+        const d1Res = await serviceFetch(env.D1_SERVICE, "/health", undefined, {
+          method: "GET",
+        });
         results.checks.push({
           service: "D1_SERVICE",
           status: d1Res.ok ? "ok" : "error",
@@ -658,7 +690,12 @@ async function runHousekeeping(env: Env): Promise<void> {
 
     if (env.TRADE_SERVICE) {
       try {
-        const tradeRes = await serviceFetch(env.TRADE_SERVICE, "/health", undefined, { method: "GET" });
+        const tradeRes = await serviceFetch(
+          env.TRADE_SERVICE,
+          "/health",
+          undefined,
+          { method: "GET" }
+        );
         results.checks.push({
           service: "TRADE_SERVICE",
           status: tradeRes.ok ? "ok" : "error",
@@ -675,7 +712,12 @@ async function runHousekeeping(env: Env): Promise<void> {
 
     if (env.TELEGRAM_SERVICE) {
       try {
-        const tgRes = await serviceFetch(env.TELEGRAM_SERVICE, "/health", undefined, { method: "GET" });
+        const tgRes = await serviceFetch(
+          env.TELEGRAM_SERVICE,
+          "/health",
+          undefined,
+          { method: "GET" }
+        );
         results.checks.push({
           service: "TELEGRAM_SERVICE",
           status: tgRes.ok ? "ok" : "error",
