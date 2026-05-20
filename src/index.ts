@@ -89,95 +89,7 @@ router.post(
     if (authError) return authError;
 
     try {
-      const results: any = {
-        timestamp: new Date().toISOString(),
-        checks: [] as any[],
-      };
-
-      // Check CONFIG_KV status
-      await env.CONFIG_KV.put(KVKeys.KV_HEALTH_CHECK, new Date().toISOString());
-      const kvTest = await env.CONFIG_KV.get(KVKeys.KV_HEALTH_CHECK);
-      results.checks.push({
-        service: "CONFIG_KV",
-        status: "ok",
-        detail: kvTest ? "readable" : "empty",
-      });
-
-      // Check D1 service
-      if (env.D1_SERVICE) {
-        try {
-          const d1Res = await serviceFetch(
-            env.D1_SERVICE,
-            "/health",
-            undefined,
-            { method: "GET" }
-          );
-          results.checks.push({
-            service: "D1_SERVICE",
-            status: d1Res.ok ? "ok" : "error",
-            detail: d1Res.status.toString(),
-          });
-        } catch (error: unknown) {
-          results.checks.push({
-            service: "D1_SERVICE",
-            status: "error",
-            detail: String(error),
-          });
-        }
-      }
-
-      // Check Trade service
-      if (env.TRADE_SERVICE) {
-        try {
-          const tradeRes = await serviceFetch(
-            env.TRADE_SERVICE,
-            "/health",
-            undefined,
-            { method: "GET" }
-          );
-          results.checks.push({
-            service: "TRADE_SERVICE",
-            status: tradeRes.ok ? "ok" : "error",
-            detail: tradeRes.status.toString(),
-          });
-        } catch (error: unknown) {
-          results.checks.push({
-            service: "TRADE_SERVICE",
-            status: "error",
-            detail: String(error),
-          });
-        }
-      }
-
-      // Check Telegram service
-      if (env.TELEGRAM_SERVICE) {
-        try {
-          const tgRes = await serviceFetch(
-            env.TELEGRAM_SERVICE,
-            "/health",
-            undefined,
-            { method: "GET" }
-          );
-          results.checks.push({
-            service: "TELEGRAM_SERVICE",
-            status: tgRes.ok ? "ok" : "error",
-            detail: tgRes.status.toString(),
-          });
-        } catch (error: unknown) {
-          results.checks.push({
-            service: "TELEGRAM_SERVICE",
-            status: "error",
-            detail: String(error),
-          });
-        }
-      }
-
-      // Log results to KV
-      await env.CONFIG_KV.put(
-        KVKeys.KV_HOUSEKEEPING_LAST_CHECK,
-        JSON.stringify(results)
-      );
-
+      const results = await runHousekeeping(env);
       return new Response(JSON.stringify(results), {
         status: 200,
         headers: { "Content-Type": "application/json" },
@@ -225,7 +137,7 @@ router.get(
           fallbackChain: config.fallbackChain,
           modelMap: config.modelMap,
         },
-        activeTrailingStops: [],
+        activeTrailingStops: await getActiveTrailingStops(env),
       }),
       {
         status: 200,
@@ -655,18 +567,40 @@ export default {
   },
 };
 
-async function runHousekeeping(env: Env): Promise<void> {
+/**
+ * Queries KV for active trailing stop watermark keys.
+ * Lists all keys with the "trade:watermark:" prefix and returns their names.
+ * Returns an empty array if none exist or if KV is unavailable.
+ */
+async function getActiveTrailingStops(env: Env): Promise<string[]> {
   try {
-    const results: any = {
-      timestamp: new Date().toISOString(),
-      checks: [] as any[],
-    };
+    const stopsList = await env.CONFIG_KV.list({ prefix: "trade:watermark:" });
+    return stopsList.keys.map((k) => k.name);
+  } catch (error: unknown) {
+    logger.warn("Failed to list active trailing stops from KV", {
+      error: toError(error),
+    });
+    return [];
+  }
+}
 
+async function runHousekeeping(env: Env): Promise<Record<string, unknown>> {
+  const results: {
+    timestamp: string;
+    checks: Array<{ service: string; status: string; detail: unknown }>;
+  } = {
+    timestamp: new Date().toISOString(),
+    checks: [],
+  };
+
+  try {
+    // CONFIG_KV write/read test
+    await env.CONFIG_KV.put(KVKeys.KV_HEALTH_CHECK, new Date().toISOString());
     const kvTest = await env.CONFIG_KV.get(KVKeys.KV_HEALTH_CHECK);
     results.checks.push({
       service: "CONFIG_KV",
       status: "ok",
-      detail: kvTest !== null ? "readable" : "empty",
+      detail: kvTest ? "readable" : "empty",
     });
 
     if (env.D1_SERVICE) {
@@ -739,7 +673,10 @@ async function runHousekeeping(env: Env): Promise<void> {
     logger.info("Housekeeping check completed", { results });
   } catch (error: unknown) {
     logger.error("Housekeeping check failed", { error: toError(error) });
+    throw error;
   }
+
+  return results;
 }
 
 async function sendCloseOrder(env: Env, position: any, qtyOverride?: number) {

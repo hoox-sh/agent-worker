@@ -14,16 +14,6 @@ export type TaskType =
   | "summarization"
   | "text-generation";
 
-export interface ProviderConfig {
-  name: ProviderName;
-  enabled: boolean;
-  apiUrl?: string;
-  apiKey?: string;
-  defaultModel: string;
-  timeoutMs?: number;
-  maxRetries?: number;
-}
-
 export interface ModelInfo {
   id: string;
   provider: ProviderName;
