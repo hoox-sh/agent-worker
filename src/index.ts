@@ -2,7 +2,10 @@ import { ExecutionContext, ScheduledEvent } from "@cloudflare/workers-types";
 import { ProviderManager, createProviderManager } from "./providers";
 import { AIRequest } from "./types";
 import { ALL_MODELS } from "./models";
-import { requireInternalAuth } from "@jango-blockchained/hoox-shared/middleware";
+import {
+  requireInternalAuth,
+  createInternalAuthMiddleware,
+} from "@jango-blockchained/hoox-shared/middleware";
 import {
   Errors,
   createJsonResponse,
@@ -79,33 +82,26 @@ export async function fetchMarkPrice(
 }
 
 const router = createRouter<Env>();
+const requireAuth = createInternalAuthMiddleware();
 
 // --- Routes ---
 
 router.post(
   "/agent/housekeeping",
   async (request: Request, env: Env, ctx: ExecutionContext) => {
-    const authError = requireInternalAuth(request, env, "INTERNAL_KEY_BINDING");
-    if (authError) return authError;
-
     try {
       const results = await runHousekeeping(env);
-      return new Response(JSON.stringify(results), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      });
+      return createJsonResponse(results, 200);
     } catch (error: unknown) {
       return Errors.internal(error);
     }
-  }
+  },
+  [requireAuth]
 );
 
 router.post(
   "/agent/risk-override",
   async (request: Request, env: Env, ctx: ExecutionContext) => {
-    const authError = requireInternalAuth(request, env, "INTERNAL_KEY_BINDING");
-    if (authError) return authError;
-
     const body: any = await request.json();
     if (body.trailingStopPercent !== undefined) {
       await env.CONFIG_KV.put(
@@ -117,76 +113,56 @@ router.post(
       success: true,
       message: "Risk override applied",
     });
-  }
+  },
+  [requireAuth]
 );
 
 router.get(
   "/agent/status",
   async (request: Request, env: Env, ctx: ExecutionContext) => {
-    const authError = requireInternalAuth(request, env, "INTERNAL_KEY_BINDING");
-    if (authError) return authError;
-
     const pm = getProviderManager(env);
     const config = await pm.loadConfig();
-    return new Response(
-      JSON.stringify({
-        success: true,
-        status: "Healthy",
-        config: {
-          defaultProvider: config.defaultProvider,
-          fallbackChain: config.fallbackChain,
-          modelMap: config.modelMap,
-        },
-        activeTrailingStops: await getActiveTrailingStops(env),
-      }),
-      {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      }
-    );
-  }
+    return createJsonResponse({
+      success: true,
+      status: "Healthy",
+      config: {
+        defaultProvider: config.defaultProvider,
+        fallbackChain: config.fallbackChain,
+        modelMap: config.modelMap,
+      },
+      activeTrailingStops: await getActiveTrailingStops(env),
+    });
+  },
+  [requireAuth]
 );
 
 router.get(
   "/agent/config",
   async (request: Request, env: Env, ctx: ExecutionContext) => {
-    const authError = requireInternalAuth(request, env, "INTERNAL_KEY_BINDING");
-    if (authError) return authError;
-
     const pm = getProviderManager(env);
     const config = await pm.loadConfig();
-    return new Response(
-      JSON.stringify({
-        success: true,
-        config,
-      }),
-      {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      }
-    );
-  }
+    return createJsonResponse({
+      success: true,
+      config,
+    });
+  },
+  [requireAuth]
 );
 
 router.post(
   "/agent/config",
   async (request: Request, env: Env, ctx: ExecutionContext) => {
-    const authError = requireInternalAuth(request, env, "INTERNAL_KEY_BINDING");
-    if (authError) return authError;
-
     const body: any = await request.json();
     const pm = getProviderManager(env);
     const updated = await pm.updateConfig(body);
     return createJsonResponse({ success: true, config: updated });
-  }
+  },
+  [requireAuth]
 );
 
 router.post(
   "/agent/test-model",
   async (request: Request, env: Env, ctx: ExecutionContext) => {
-    const authError = requireInternalAuth(request, env, "INTERNAL_KEY_BINDING");
-    if (authError) return authError;
-
     const body: any = await request.json();
     const pm = getProviderManager(env);
     const provider = body.provider || "workers-ai";
@@ -204,21 +180,19 @@ router.post(
     };
 
     const result = await pm.run(testRequest);
-    return new Response(
-      JSON.stringify({
+    return createJsonResponse(
+      {
         success: result.success,
         provider: result.provider,
         model: result.model,
         response: result.data?.response,
         error: result.error,
         latencyMs: result.latencyMs,
-      }),
-      {
-        status: result.success ? 200 : 502,
-        headers: { "Content-Type": "application/json" },
-      }
+      },
+      result.success ? 200 : 502
     );
-  }
+  },
+  [requireAuth]
 );
 
 router.get(
@@ -226,44 +200,27 @@ router.get(
   async (request: Request, env: Env, ctx: ExecutionContext) => {
     const pm = getProviderManager(env);
     const status = await pm.getProviderStatus();
-    return new Response(
-      JSON.stringify({
-        success: true,
-        providers: status,
-      }),
-      {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      }
-    );
+    return createJsonResponse({
+      success: true,
+      providers: status,
+    });
   }
 );
 
 router.get(
   "/agent/models",
   async (request: Request, env: Env, ctx: ExecutionContext) => {
-    const authError = requireInternalAuth(request, env, "INTERNAL_KEY_BINDING");
-    if (authError) return authError;
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        models: ALL_MODELS,
-      }),
-      {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      }
-    );
-  }
+    return createJsonResponse({
+      success: true,
+      models: ALL_MODELS,
+    });
+  },
+  [requireAuth]
 );
 
 router.post(
   "/agent/chat",
   async (request: Request, env: Env, ctx: ExecutionContext) => {
-    const authError = requireInternalAuth(request, env, "INTERNAL_KEY_BINDING");
-    if (authError) return authError;
-
     const body: any = await request.json();
     const pm = getProviderManager(env);
     const testRequest: AIRequest = {
@@ -279,44 +236,37 @@ router.post(
     };
 
     const result = await pm.run(testRequest);
-    return new Response(
-      JSON.stringify({
+    return createJsonResponse(
+      {
         success: result.success,
         response: result.data?.response,
         model: result.model,
         provider: result.provider,
         error: result.error,
-      }),
-      {
-        status: result.success ? 200 : 502,
-        headers: { "Content-Type": "application/json" },
-      }
+      },
+      result.success ? 200 : 502
     );
-  }
+  },
+  [requireAuth]
 );
 
 router.post(
   "/agent/embedding",
   async (request: Request, env: Env, ctx: ExecutionContext) => {
-    const authError = requireInternalAuth(request, env, "INTERNAL_KEY_BINDING");
-    if (authError) return authError;
-
     const body: any = await request.json();
     const pm = getProviderManager(env);
     const result = await pm.runEmbedding(body.text, body.provider);
-    return new Response(
-      JSON.stringify({
+    return createJsonResponse(
+      {
         success: result.success,
         embedding: result.data?.response,
         model: result.model,
         error: result.error,
-      }),
-      {
-        status: result.success ? 200 : 502,
-        headers: { "Content-Type": "application/json" },
-      }
+      },
+      result.success ? 200 : 502
     );
-  }
+  },
+  [requireAuth]
 );
 
 // Root endpoint
