@@ -33,6 +33,7 @@ describe("Agent Worker", () => {
         fetch: vi.fn().mockResolvedValue({ ok: true }),
       },
       AGENT_INTERNAL_KEY: TEST_KEY,
+      INTERNAL_KEY_BINDING: TEST_KEY,
     };
     mockCtx = { waitUntil: (p: Promise<any>) => p };
   });
@@ -249,6 +250,7 @@ describe("POST /agent/housekeeping", () => {
         fetch: vi.fn().mockResolvedValue({ ok: true }),
       },
       AGENT_INTERNAL_KEY: "test-key",
+      INTERNAL_KEY_BINDING: "test-key",
     };
     mockCtx = { waitUntil: (p: Promise<any>) => p };
   });

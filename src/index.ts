@@ -4,6 +4,7 @@ import { AIRequest } from "./types";
 import { ALL_MODELS } from "./models";
 import {
   requireInternalAuth,
+  checkInternalAuth,
   createInternalAuthMiddleware,
 } from "@jango-blockchained/hoox-shared/middleware";
 import {
@@ -21,7 +22,7 @@ import {
 import { serviceFetch } from "@jango-blockchained/hoox-shared/service-bindings";
 
 // Re-export for backward compatibility with tests
-export { requireInternalAuth };
+export { requireInternalAuth, checkInternalAuth };
 
 const logger = createLogger({ service: "agent-worker" });
 

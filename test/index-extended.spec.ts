@@ -114,6 +114,7 @@ describe("POST /agent/housekeeping error handling", () => {
         fetch: vi.fn().mockRejectedValue(new Error("TG error")),
       },
       AGENT_INTERNAL_KEY: TEST_KEY,
+      INTERNAL_KEY_BINDING: TEST_KEY,
     };
     mockCtx = { waitUntil: (p: Promise<any>) => p };
   });
