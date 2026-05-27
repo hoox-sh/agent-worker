@@ -16,7 +16,7 @@ export class ProviderManager {
   });
   private env: any;
   private config: AgentConfig | null = null;
-  private configLoading = false;
+  private configLoadPromise: Promise<AgentConfig> | null = null;
 
   constructor(env: any) {
     this.env = env;
@@ -24,12 +24,17 @@ export class ProviderManager {
 
   async loadConfig(): Promise<AgentConfig> {
     if (this.config) return this.config;
-    if (this.configLoading) {
-      await new Promise((r) => setTimeout(r, 100));
-      return this.loadConfig();
-    }
-    this.configLoading = true;
+    if (this.configLoadPromise) return this.configLoadPromise;
 
+    this.configLoadPromise = this._loadConfig();
+    try {
+      return await this.configLoadPromise;
+    } finally {
+      this.configLoadPromise = null;
+    }
+  }
+
+  private async _loadConfig(): Promise<AgentConfig> {
     try {
       const stored = await this.env.CONFIG_KV.get("agent:config");
       if (stored) {
@@ -46,7 +51,6 @@ export class ProviderManager {
       this.config = DEFAULT_AGENT_CONFIG;
     }
 
-    this.configLoading = false;
     return this.config!;
   }
 
@@ -142,7 +146,7 @@ export class ProviderManager {
         {
           messages: request.messages,
         },
-        { signal: controller.signal as any }
+        { signal: controller.signal }
       );
 
       clearTimeout(timeout);
@@ -173,6 +177,7 @@ export class ProviderManager {
     const baseUrl =
       (await this.env.AI.gateway?.("aig").getUrl?.("openai")) ||
       "https://gateway.ai.cloudflare.com/v1/workers-ai";
+    const timeoutMs = config.timeoutMs || 30000;
 
     if (!apiKey) {
       return {
@@ -182,6 +187,9 @@ export class ProviderManager {
         model,
       };
     }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
       const res = await fetch(`${baseUrl}/chat/completions`, {
@@ -196,7 +204,10 @@ export class ProviderManager {
           temperature: request.temperature,
           max_tokens: request.maxTokens,
         }),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeout);
 
       const data: any = await res.json();
 
@@ -217,6 +228,7 @@ export class ProviderManager {
         latencyMs: data._metadata?.latency,
       };
     } catch (error: unknown) {
+      clearTimeout(timeout);
       return {
         success: false,
         error: error instanceof Error ? error.message : "OpenAI request failed",
@@ -232,6 +244,7 @@ export class ProviderManager {
   ): Promise<ProviderResult> {
     const model = request.model || config.modelMap["anthropic"];
     const apiKey = await this.env.CONFIG_KV.get(KVKeys.KV_AGENT_ANTHROPIC_KEY);
+    const timeoutMs = config.timeoutMs || 30000;
 
     if (!apiKey) {
       return {
@@ -241,6 +254,9 @@ export class ProviderManager {
         model,
       };
     }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
       const baseUrl =
@@ -264,7 +280,10 @@ export class ProviderManager {
           temperature: request.temperature,
           max_tokens: request.maxTokens || 4096,
         }),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeout);
 
       const data: any = await res.json();
 
@@ -285,6 +304,7 @@ export class ProviderManager {
         latencyMs: data._metadata?.latency,
       };
     } catch (error: unknown) {
+      clearTimeout(timeout);
       return {
         success: false,
         error:
@@ -295,12 +315,13 @@ export class ProviderManager {
     }
   }
 
-  private async runGoogle(
+private async runGoogle(
     request: AIRequest,
     config: AgentConfig
   ): Promise<ProviderResult> {
     const model = request.model || config.modelMap["google"];
     const apiKey = await this.env.CONFIG_KV.get(KVKeys.KV_AGENT_GOOGLE_KEY);
+    const timeoutMs = config.timeoutMs || 30000;
 
     if (!apiKey) {
       return {
@@ -310,6 +331,63 @@ export class ProviderManager {
         model,
       };
     }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const baseUrl =
+        (await this.env.AI.gateway?.("aig").getUrl?.("google")) ||
+        "https://gateway.ai.cloudflare.com/v1/workers-ai/google";
+
+      const res = await fetch(`${baseUrl}/generateContent?key=${apiKey}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [
+            { parts: request.messages.map((m) => ({ text: m.content })) },
+          ],
+          generationConfig: {
+            temperature: request.temperature,
+            maxOutputTokens: request.maxTokens,
+          },
+        }),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeout);
+
+      const any = await res.json();
+
+      if (!res.ok) {
+        return {
+          success: false,
+          error: data.error?.message || "Google API error",
+          provider: "google",
+          model,
+        };
+      }
+
+      return {
+        success: true,
+        {
+          response: data.candidates?.[0]?.content?.parts?.[0]?.text || "",
+          model,
+        },
+        provider: "google",
+        model,
+        latencyMs: data._metadata?.latency,
+      };
+    } catch (error: unknown) {
+      clearTimeout(timeout);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Google request failed",
+        provider: "google",
+        model,
+      };
+    }
+  }
 
     try {
       const baseUrl =

@@ -1,4 +1,4 @@
-import { ExecutionContext, ScheduledEvent } from "@cloudflare/workers-types";
+import { ScheduledEvent } from "@cloudflare/workers-types";
 import { ProviderManager, createProviderManager } from "./providers";
 import { AIRequest } from "./types";
 import { ALL_MODELS } from "./models";
