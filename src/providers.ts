@@ -9,16 +9,21 @@ import {
 } from "./types";
 import { KVKeys } from "@jango-blockchained/hoox-shared/kvKeys";
 
+export interface ProviderEnv {
+  CONFIG_KV: KVNamespace;
+  AI: any; // Workers AI binding
+}
+
 export class ProviderManager {
   private logger = createLogger({
     service: "agent-worker",
     module: "providers",
   });
-  private env: any;
+  private env: ProviderEnv;
   private config: AgentConfig | null = null;
   private configLoadPromise: Promise<AgentConfig> | null = null;
 
-  constructor(env: any) {
+  constructor(env: ProviderEnv) {
     this.env = env;
   }
 
@@ -315,7 +320,7 @@ export class ProviderManager {
     }
   }
 
-private async runGoogle(
+  private async runGoogle(
     request: AIRequest,
     config: AgentConfig
   ): Promise<ProviderResult> {
@@ -355,59 +360,6 @@ private async runGoogle(
         signal: controller.signal,
       });
 
-      clearTimeout(timeout);
-
-      const any = await res.json();
-
-      if (!res.ok) {
-        return {
-          success: false,
-          error: data.error?.message || "Google API error",
-          provider: "google",
-          model,
-        };
-      }
-
-      return {
-        success: true,
-        {
-          response: data.candidates?.[0]?.content?.parts?.[0]?.text || "",
-          model,
-        },
-        provider: "google",
-        model,
-        latencyMs: data._metadata?.latency,
-      };
-    } catch (error: unknown) {
-      clearTimeout(timeout);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Google request failed",
-        provider: "google",
-        model,
-      };
-    }
-  }
-
-    try {
-      const baseUrl =
-        (await this.env.AI.gateway?.("aig").getUrl?.("google")) ||
-        "https://gateway.ai.cloudflare.com/v1/workers-ai/google";
-
-      const res = await fetch(`${baseUrl}/generateContent?key=${apiKey}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [
-            { parts: request.messages.map((m) => ({ text: m.content })) },
-          ],
-          generationConfig: {
-            temperature: request.temperature,
-            maxOutputTokens: request.maxTokens,
-          },
-        }),
-      });
-
       const data: any = await res.json();
 
       if (!res.ok) {
@@ -436,6 +388,8 @@ private async runGoogle(
         provider: "google",
         model,
       };
+    } finally {
+      clearTimeout(timeout);
     }
   }
 
@@ -509,6 +463,6 @@ private async runGoogle(
   }
 }
 
-export function createProviderManager(env: any): ProviderManager {
+export function createProviderManager(env: ProviderEnv): ProviderManager {
   return new ProviderManager(env);
 }
