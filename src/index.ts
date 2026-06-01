@@ -30,7 +30,9 @@ export { requireInternalAuth, checkInternalAuth, processRoutine };
 
 const logger = createLogger({ service: "agent-worker" });
 
-export interface Env extends Cloudflare.Env {}
+export interface Env extends Cloudflare.Env {
+  [key: string]: unknown;
+}
 
 function getProviderManager(env: Env): ProviderManager {
   return createProviderManager(env);
