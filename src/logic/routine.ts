@@ -186,9 +186,18 @@ export async function processRoutine(
       await env.CONFIG_KV.put(KVKeys.KV_TRADE_KILL_SWITCH, "true");
 
       if (env.TELEGRAM_SERVICE) {
-        await serviceFetch(env.TELEGRAM_SERVICE, "/webhook", {
-          message: `🚨 EMERGENCY: Max daily drawdown reached (${pnlPercent.toFixed(2)}%). Global Kill Switch ENGAGED.`,
-        });
+        await serviceFetch(
+          env.TELEGRAM_SERVICE,
+          "/alert",
+          {
+            message: `🚨 EMERGENCY: Max daily drawdown reached (${pnlPercent.toFixed(2)}%). Global Kill Switch ENGAGED.`,
+          },
+          {
+            headers: env.INTERNAL_KEY_BINDING
+              ? { "X-Internal-Auth-Key": env.INTERNAL_KEY_BINDING }
+              : undefined,
+          }
+        );
       }
     }
 
@@ -228,9 +237,18 @@ export async function processRoutine(
             );
 
             if (env.TELEGRAM_SERVICE) {
-              await serviceFetch(env.TELEGRAM_SERVICE, "/webhook", {
-                message: `🧠 AI System Health Update:\n${result.data.response}`,
-              });
+              await serviceFetch(
+                env.TELEGRAM_SERVICE,
+                "/alert",
+                {
+                  message: `🧠 AI System Health Update:\n${result.data.response}`,
+                },
+                {
+                  headers: env.INTERNAL_KEY_BINDING
+                    ? { "X-Internal-Auth-Key": env.INTERNAL_KEY_BINDING }
+                    : undefined,
+                }
+              );
             }
           }
         }
