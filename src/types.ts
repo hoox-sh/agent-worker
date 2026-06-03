@@ -1,9 +1,4 @@
-export type ProviderName =
-  | "workers-ai"
-  | "openai"
-  | "anthropic"
-  | "google"
-  | "azure";
+export type ProviderName = "workers-ai" | "openai" | "anthropic" | "google";
 
 export type TaskType =
   | "chat"
@@ -68,7 +63,6 @@ export const DEFAULT_AGENT_CONFIG: AgentConfig = {
     openai: "gpt-4o-mini-2024-07-18",
     anthropic: "claude-3-haiku-20240307",
     google: "gemini-1.5-flash-002",
-    azure: "gpt-4o-mini",
   },
   timeoutMs: 30000,
   retryCount: 3,

@@ -1,6 +1,7 @@
 import { toError } from "@jango-blockchained/hoox-shared/errors";
 import { KVKeys } from "@jango-blockchained/hoox-shared/kvKeys";
 import { serviceFetch } from "@jango-blockchained/hoox-shared/service-bindings";
+import { trackAnalytics } from "@jango-blockchained/hoox-shared/analytics";
 
 /**
  * Runs system-wide housekeeping checks.
@@ -95,6 +96,14 @@ export async function runHousekeeping(
       JSON.stringify(results)
     );
     logger.info("Housekeeping check completed", { results });
+
+    // Non-blocking analytics tracking (fire-and-forget, errors handled internally)
+    void trackAnalytics(env, "/track/housekeeping", {
+      worker: "agent-worker",
+      checks: results.checks.length,
+      healthy: results.checks.filter((c) => c.status === "ok").length,
+      unhealthy: results.checks.filter((c) => c.status !== "ok").length,
+    });
   } catch (error: unknown) {
     logger.error("Housekeeping check failed", { error: toError(error) });
     throw error;

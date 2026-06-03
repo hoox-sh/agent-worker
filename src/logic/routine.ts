@@ -1,6 +1,7 @@
 import { toError } from "@jango-blockchained/hoox-shared/errors";
 import { KVKeys } from "@jango-blockchained/hoox-shared/kvKeys";
 import { serviceFetch } from "@jango-blockchained/hoox-shared/service-bindings";
+import { trackAnalytics } from "@jango-blockchained/hoox-shared/analytics";
 import { AIRequest } from "../types";
 import { fetchMarkPrice, sendCloseOrder } from "./trade";
 
@@ -141,6 +142,14 @@ export async function processRoutine(
               `TRAILING STOP TRIGGERED for ${position.symbol}! Watermark: ${newWm}, Current: ${markPrice}`
             );
             await sendCloseOrder(env, position, logger);
+            void trackAnalytics(env, "/track/trailing-stop", {
+              exchange: position.exchange,
+              symbol: position.symbol,
+              side: position.side,
+              watermark: newWm,
+              currentPrice: markPrice,
+              trigger: "trailing_stop",
+            });
           }
 
           const tpPercent = config.takeProfitPercent;
@@ -165,6 +174,14 @@ export async function processRoutine(
               );
               await sendCloseOrder(env, position, logger, position.size / 2);
               await env.CONFIG_KV.put(tpKey, "true");
+              void trackAnalytics(env, "/track/take-profit", {
+                exchange: position.exchange,
+                symbol: position.symbol,
+                side: position.side,
+                entryPrice: position.entry_price,
+                currentPrice: markPrice,
+                scaledQuantity: position.size / 2,
+              });
             }
           }
         }
@@ -184,6 +201,13 @@ export async function processRoutine(
         `GLOBAL RISK BREACH: PnL is ${pnlPercent}%, limit is ${maxDrawdownPercent}%. Engaging kill switch.`
       );
       await env.CONFIG_KV.put(KVKeys.KV_TRADE_KILL_SWITCH, "true");
+      void trackAnalytics(env, "/track/kill-switch", {
+        trigger: "max_drawdown",
+        pnlPercent: pnlPercent.toFixed(2),
+        limit: maxDrawdownPercent,
+        totalUnrealizedPnl,
+        accountValue,
+      });
 
       if (env.TELEGRAM_SERVICE) {
         await serviceFetch(

@@ -18,6 +18,7 @@ import { createRouter } from "@jango-blockchained/hoox-shared/router";
 import {
   createLogger,
   withRequestLog,
+  corsHeaders,
 } from "@jango-blockchained/hoox-shared/middleware";
 import { serviceFetch } from "@jango-blockchained/hoox-shared/service-bindings";
 
@@ -26,12 +27,24 @@ import { runHousekeeping } from "./logic/housekeeping";
 import { processRoutine } from "./logic/routine";
 
 // Re-export for backward compatibility with tests
-export { requireInternalAuth, checkInternalAuth, processRoutine };
+export {
+  requireInternalAuth,
+  checkInternalAuth,
+  processRoutine,
+  fetchMarkPrice,
+  sendCloseOrder,
+};
 
 const logger = createLogger({ service: "agent-worker" });
 
 export interface Env extends Cloudflare.Env {
   [key: string]: unknown;
+  CONFIG_KV: KVNamespace;
+  AI: Ai;
+  D1_SERVICE: Fetcher;
+  TRADE_SERVICE: Fetcher;
+  TELEGRAM_SERVICE: Fetcher;
+  ANALYTICS_SERVICE?: Fetcher;
 }
 
 function getProviderManager(env: Env): ProviderManager {
@@ -253,8 +266,17 @@ router.get(
 
 export default {
   fetch: withRequestLog<Env>(
-    (request: Request, env: Env, ctx: ExecutionContext) => {
-      return router.handle(request, env, ctx);
+    async (request: Request, env: Env, ctx: ExecutionContext) => {
+      const cors = corsHeaders();
+      if (request.method === "OPTIONS") {
+        return new Response(null, { status: 204, headers: cors });
+      }
+      const response = await router.handle(request, env, ctx);
+      const newResponse = new Response(response.body, response);
+      for (const [key, value] of Object.entries(cors)) {
+        newResponse.headers.set(key, value);
+      }
+      return newResponse;
     },
     { service: "agent-worker", module: "router" }
   ),

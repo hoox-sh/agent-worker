@@ -41,12 +41,12 @@ export class ProviderManager {
 
   private async _loadConfig(): Promise<AgentConfig> {
     try {
-      const stored = await this.env.CONFIG_KV.get("agent:config");
+      const stored = await this.env.CONFIG_KV.get(KVKeys.KV_AGENT_CONFIG);
       if (stored) {
         this.config = { ...DEFAULT_AGENT_CONFIG, ...JSON.parse(stored) };
       } else {
         await this.env.CONFIG_KV.put(
-          "agent:config",
+          KVKeys.KV_AGENT_CONFIG,
           JSON.stringify(DEFAULT_AGENT_CONFIG)
         );
         this.config = DEFAULT_AGENT_CONFIG;
@@ -62,7 +62,10 @@ export class ProviderManager {
   async updateConfig(updates: Partial<AgentConfig>): Promise<AgentConfig> {
     const current = await this.loadConfig();
     const updated = { ...current, ...updates };
-    await this.env.CONFIG_KV.put("agent:config", JSON.stringify(updated));
+    await this.env.CONFIG_KV.put(
+      KVKeys.KV_AGENT_CONFIG,
+      JSON.stringify(updated)
+    );
     this.config = updated;
     return updated;
   }
@@ -141,11 +144,10 @@ export class ProviderManager {
   ): Promise<ProviderResult> {
     const model = request.model || config.modelMap["workers-ai"];
     const timeoutMs = config.timeoutMs || 30000;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), timeoutMs);
-
       const response: any = await this.env.AI.run(
         model,
         {
@@ -164,6 +166,7 @@ export class ProviderManager {
         latencyMs: response?._metadata?.latency,
       };
     } catch (error: unknown) {
+      clearTimeout(timeout);
       return {
         success: false,
         error: error instanceof Error ? error.message : "Workers AI failed",
@@ -181,7 +184,7 @@ export class ProviderManager {
     const apiKey = await this.env.CONFIG_KV.get(KVKeys.KV_AGENT_OPENAI_KEY);
     const baseUrl =
       (await this.env.AI.gateway?.("aig").getUrl?.("openai")) ||
-      "https://gateway.ai.cloudflare.com/v1/workers-ai";
+      "https://api.openai.com/v1";
     const timeoutMs = config.timeoutMs || 30000;
 
     if (!apiKey) {
@@ -266,7 +269,7 @@ export class ProviderManager {
     try {
       const baseUrl =
         (await this.env.AI.gateway?.("aig").getUrl?.("anthropic")) ||
-        "https://gateway.ai.cloudflare.com/v1/workers-ai/anthropic";
+        "https://api.anthropic.com/v1";
 
       const systemMsg = request.messages.find((m) => m.role === "system");
       const userMsgs = request.messages.filter((m) => m.role !== "system");
@@ -343,7 +346,7 @@ export class ProviderManager {
     try {
       const baseUrl =
         (await this.env.AI.gateway?.("aig").getUrl?.("google")) ||
-        "https://gateway.ai.cloudflare.com/v1/workers-ai/google";
+        "https://generativelanguage.googleapis.com/v1beta";
 
       const res = await fetch(`${baseUrl}/generateContent?key=${apiKey}`, {
         method: "POST",

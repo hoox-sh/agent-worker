@@ -7,7 +7,7 @@ import { serviceFetch } from "@jango-blockchained/hoox-shared/service-bindings";
 export async function fetchMarkPrice(
   exchange: string,
   symbol: string,
-  logger: any
+  logger?: any
 ): Promise<number | null> {
   try {
     const ex = exchange.toLowerCase();
@@ -66,7 +66,7 @@ export async function sendCloseOrder(
     side: "LONG" | "SHORT";
     size: number;
   },
-  logger: any,
+  logger?: any,
   qtyOverride?: number
 ) {
   const action = position.side === "LONG" ? "CLOSE_LONG" : "CLOSE_SHORT";
@@ -81,9 +81,9 @@ export async function sendCloseOrder(
   try {
     logger.info("Sending close order to TRADE_SERVICE", { payload });
 
-    const internalKey = env.INTERNAL_KEY_BINDING || env.AGENT_INTERNAL_KEY;
+    const internalKey = env.AGENT_INTERNAL_KEY;
     if (!internalKey) {
-      logger.error("INTERNAL_KEY_BINDING not configured for close order");
+      logger.error("AGENT_INTERNAL_KEY not configured for close order");
       return;
     }
 

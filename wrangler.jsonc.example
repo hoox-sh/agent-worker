@@ -3,7 +3,7 @@
   // ACCOUNT_ID: Get from Cloudflare Dashboard > Overview > Account ID
   "account_id": "YOUR_ACCOUNT_ID",
   "main": "src/index.ts",
-  "compatibility_date": "2025-03-07",
+  "compatibility_date": "2026-04-17",
   "compatibility_flags": ["nodejs_compat"],
 
   // PLACEMENT: Smart Placement for reduced latency (free, all plans)
@@ -36,6 +36,10 @@
     {
       "binding": "TELEGRAM_SERVICE",
       "service": "telegram-worker"
+    },
+    {
+      "binding": "ANALYTICS_SERVICE",
+      "service": "analytics-worker"
     }
   ],
 

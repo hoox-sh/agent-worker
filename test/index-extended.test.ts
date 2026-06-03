@@ -1,6 +1,9 @@
 import { describe, expect, test, vi, beforeEach } from "bun:test";
-import worker, { checkInternalAuth, fetchMarkPrice } from "../src/index";
-import { ProviderManager, createProviderManager } from "../src/providers";
+import worker, {
+  checkInternalAuth,
+  fetchMarkPrice,
+  sendCloseOrder,
+} from "../src/index";
 
 describe("checkInternalAuth", () => {
   let mockEnv: any;
@@ -135,7 +138,6 @@ describe("POST /agent/housekeeping error handling", () => {
 
 describe("processRoutine error paths", () => {
   let mockEnv: any;
-  let mockCtx: any;
 
   beforeEach(() => {
     mockEnv = {
@@ -158,7 +160,6 @@ describe("processRoutine error paths", () => {
       },
       AGENT_INTERNAL_KEY: "test-key",
     };
-    mockCtx = { waitUntil: (p: Promise<any>) => p };
   });
 
   test("handles positions fetch error", async () => {
@@ -233,18 +234,31 @@ describe("sendCloseOrder", () => {
     mockEnv = {
       CONFIG_KV: { put: vi.fn().mockResolvedValue(undefined) },
       TRADE_SERVICE: { fetch: vi.fn().mockResolvedValue({ ok: true }) },
+      AGENT_INTERNAL_KEY: "test-key",
     };
   });
 
-  test("logs close order payload", async () => {
+  test("sends close order to TRADE_SERVICE", async () => {
     const position = {
       symbol: "BTCUSDT",
-      side: "LONG",
+      side: "LONG" as const,
       size: 0.1,
       exchange: "binance",
     };
-    // sendCloseOrder is not exported, cannot test directly
-    // Tested via processRoutine
-    expect(mockEnv).toBeDefined();
+    await sendCloseOrder(mockEnv, position, console);
+    expect(mockEnv.TRADE_SERVICE.fetch).toHaveBeenCalled();
+  });
+
+  test("handles missing AGENT_INTERNAL_KEY gracefully", async () => {
+    const position = {
+      symbol: "BTCUSDT",
+      side: "LONG" as const,
+      size: 0.1,
+      exchange: "binance",
+    };
+    mockEnv.AGENT_INTERNAL_KEY = undefined;
+    // Should not throw
+    await sendCloseOrder(mockEnv, position, console);
+    expect(mockEnv.TRADE_SERVICE.fetch).not.toHaveBeenCalled();
   });
 });
