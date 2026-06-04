@@ -21,6 +21,7 @@ import {
   corsHeaders,
 } from "@jango-blockchained/hoox-shared/middleware";
 import { serviceFetch } from "@jango-blockchained/hoox-shared/service-bindings";
+import { createCronHandler } from "@jango-blockchained/hoox-shared/cron-handler";
 
 import { fetchMarkPrice, sendCloseOrder } from "./logic/trade";
 import { runHousekeeping } from "./logic/housekeeping";
@@ -257,6 +258,20 @@ router.get(
   }
 );
 
+const cronHandler = createCronHandler<Env>({
+  name: "agent-worker",
+  logger,
+  handler: async (_event: ScheduledEvent, env: Env, ctx: ExecutionContext) => {
+    ctx.waitUntil(runHousekeeping(env, logger));
+    ctx.waitUntil(
+      processRoutine(env, logger, {
+        getProviderManager,
+        getActiveTrailingStops,
+      })
+    );
+  },
+});
+
 export default {
   fetch: withRequestLog<Env>(
     async (request: Request, env: Env, ctx: ExecutionContext) => {
@@ -275,17 +290,7 @@ export default {
   ),
 
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
-    logger.info("Agent Worker cron triggered", {
-      cron: event.cron,
-      scheduledTime: event.scheduledTime,
-    });
-    ctx.waitUntil(runHousekeeping(env, logger));
-    ctx.waitUntil(
-      processRoutine(env, logger, {
-        getProviderManager,
-        getActiveTrailingStops,
-      })
-    );
+    return await cronHandler(event, env, ctx);
   },
 
   // Export for testing
