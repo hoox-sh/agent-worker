@@ -1,9 +1,7 @@
 import { describe, expect, test, vi, beforeEach } from "bun:test";
-import worker, {
-  checkInternalAuth,
-  fetchMarkPrice,
-  sendCloseOrder,
-} from "../src/index";
+import worker from "../src/index";
+import { checkInternalAuth } from "@jango-blockchained/hoox-shared/middleware";
+import { fetchMarkPrice, sendCloseOrder } from "../src/logic/trade";
 
 describe("checkInternalAuth", () => {
   let mockEnv: any;
