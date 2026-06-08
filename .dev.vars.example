@@ -1,0 +1,12 @@
+# Agent Worker Environment Variables (local development)
+# Copy to .dev.vars and replace with actual values from `hoox setup` output.
+# .dev.vars is gitignored — never commit secrets.
+
+# Internal auth key used by createInternalAuthMiddleware()
+INTERNAL_KEY_BINDING=your_internal_key_binding_here
+
+# Internal key for agent-worker service auth
+AGENT_INTERNAL_KEY=your_agent_internal_key_here
+
+# Note: OpenAI/Anthropic/Google keys are optional and set via Cloudflare secrets,
+# not .dev.vars, unless you need them for local development.

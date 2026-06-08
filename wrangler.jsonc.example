@@ -1,29 +1,29 @@
 {
+  // Agent Worker — AI risk manager (5-minute cron schedule)
   "name": "agent-worker",
-  // ACCOUNT_ID: Get from Cloudflare Dashboard > Overview > Account ID
   "account_id": "YOUR_ACCOUNT_ID",
   "main": "src/index.ts",
-  "compatibility_date": "2026-04-17",
+  "alias": {
+    "@jango-blockchained/hoox-shared/errors": "../../packages/shared/src/errors.ts",
+    "@jango-blockchained/hoox-shared/middleware": "../../packages/shared/src/middleware/index.ts",
+    "@jango-blockchained/hoox-shared/router": "../../packages/shared/src/router.ts",
+    "@jango-blockchained/hoox-shared/health": "../../packages/shared/src/health.ts",
+    "@jango-blockchained/hoox-shared/kvKeys": "../../packages/shared/src/kvKeys.ts",
+    "@jango-blockchained/hoox-shared/analytics": "../../packages/shared/src/analytics.ts"
+  },
+  "compatibility_date": "2026-06-08",
   "compatibility_flags": ["nodejs_compat"],
-
-  // PLACEMENT: Smart Placement for reduced latency (free, all plans)
   "placement": {
     "mode": "smart"
   },
-
-  // OBSERVABILITY: Enable logging and sampling
   "observability": {
     "enabled": true,
-    "head_sampling_rate": 1
+    "logs": { "enabled": true, "head_sampling_rate": 1 },
+    "traces": { "enabled": true, "head_sampling_rate": 0.01 }
   },
-
-  // TRIGGERS: Cron schedule for autonomous monitoring
-  // Runs every 5 minutes for portfolio analysis
   "triggers": {
     "crons": ["*/5 * * * *"]
   },
-
-  // SERVICES: Service bindings to other workers
   "services": [
     {
       "binding": "D1_SERVICE",
@@ -42,17 +42,13 @@
       "service": "analytics-worker"
     }
   ],
-
-  // KV_NAMESPACES: Key-Value storage for config and kill switch
   "kv_namespaces": [
     {
       "binding": "CONFIG_KV",
       "id": "YOUR_CONFIG_KV_ID"
     }
   ],
-
-  // AI: Cloudflare Workers AI for risk analysis and summaries
-  // Note: AGENT_INTERNAL_KEY is set via `wrangler secret put`
+  "vars": {},
   "ai": {
     "binding": "AI"
   }
