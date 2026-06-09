@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "description": "AI-powered risk manager for Hoox trading system (5min cron)",
-  "license": "MIT",
+  "license": "CC-BY-4.0",
   "type": "module",
   "dependencies": {
     "@jango-blockchained/hoox-shared": "workspace:*"
@@ -20,5 +20,6 @@
     "@cloudflare/workers-types": "^4.20260527.1",
     "typescript": "^6.0.3",
     "wrangler": "^4.95.0"
-  }
+  },
+  "author": "jango-blockchained"
 }
