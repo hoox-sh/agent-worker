@@ -2,6 +2,7 @@ import { ScheduledEvent } from "@cloudflare/workers-types";
 import { ProviderManager, createProviderManager } from "./providers";
 import { AIRequest, AgentConfig, ProviderName } from "./types";
 import { ALL_MODELS } from "./models";
+import { z } from "zod/v4";
 import {
   requireInternalAuth,
   checkInternalAuth,
@@ -39,6 +40,30 @@ function getProviderManager(env: Env): ProviderManager {
 const router = createRouter<Env>();
 const requireAuth = createInternalAuthMiddleware();
 
+// ── Zod validation schemas (S-02 audit fix) ──
+const RiskOverrideSchema = z.object({
+  trailingStopPercent: z.number().min(0).max(100).optional(),
+});
+
+const AgentConfigUpdateSchema = z
+  .object({
+    defaultProvider: z.string().optional(),
+    fallbackChain: z.array(z.string()).optional(),
+    modelMap: z.record(z.string(), z.string()).optional(),
+  })
+  .partial();
+
+const TestModelSchema = z.object({
+  provider: z.string().optional(),
+  model: z.string().optional(),
+  prompt: z.string().optional(),
+});
+
+const EmbeddingSchema = z.object({
+  text: z.string().min(1).max(10000),
+  provider: z.string().optional(),
+});
+
 // --- Routes ---
 
 router.post(
@@ -57,7 +82,9 @@ router.post(
 router.post(
   "/agent/risk-override",
   async (request: Request, env: Env, ctx: ExecutionContext) => {
-    const body = (await request.json()) as { trailingStopPercent?: number };
+    const parsed = RiskOverrideSchema.safeParse(await request.json());
+    if (!parsed.success) return Errors.badRequest("Invalid payload");
+    const body = parsed.data;
     if (body.trailingStopPercent !== undefined) {
       await env.CONFIG_KV.put(
         KVKeys.KV_TRADE_TRAILING_STOP_PERCENT,
@@ -107,7 +134,9 @@ router.get(
 router.post(
   "/agent/config",
   async (request: Request, env: Env, ctx: ExecutionContext) => {
-    const body = (await request.json()) as Partial<AgentConfig>;
+    const parsed = AgentConfigUpdateSchema.safeParse(await request.json());
+    if (!parsed.success) return Errors.badRequest("Invalid payload");
+    const body = parsed.data as Partial<AgentConfig>;
     const pm = getProviderManager(env);
     const updated = await pm.updateConfig(body);
     return createJsonResponse({ success: true, config: updated });
@@ -118,11 +147,9 @@ router.post(
 router.post(
   "/agent/test-model",
   async (request: Request, env: Env, ctx: ExecutionContext) => {
-    const body = (await request.json()) as {
-      provider?: ProviderName;
-      model?: string;
-      prompt?: string;
-    };
+    const parsed = TestModelSchema.safeParse(await request.json());
+    if (!parsed.success) return Errors.badRequest("Invalid payload");
+    const body = parsed.data;
     const pm = getProviderManager(env);
     const provider = body.provider || "workers-ai";
     const model = body.model;
@@ -218,10 +245,9 @@ router.post(
 router.post(
   "/agent/embedding",
   async (request: Request, env: Env, ctx: ExecutionContext) => {
-    const body = (await request.json()) as {
-      text: string;
-      provider?: ProviderName;
-    };
+    const parsed = EmbeddingSchema.safeParse(await request.json());
+    if (!parsed.success) return Errors.badRequest("Invalid payload");
+    const body = parsed.data;
     const pm = getProviderManager(env);
     const result = await pm.runEmbedding(body.text, body.provider);
     return createJsonResponse(
@@ -253,12 +279,18 @@ const cronHandler = createCronHandler<Env>({
   name: "agent-worker",
   logger,
   handler: async (_event: ScheduledEvent, env: Env, ctx: ExecutionContext) => {
-    ctx.waitUntil(runHousekeeping(env, logger));
+    ctx.waitUntil(
+      runHousekeeping(env, logger).catch((err) =>
+        logger.error("runHousekeeping failed", { error: String(err) })
+      )
+    );
     ctx.waitUntil(
       processRoutine(env, logger, {
         getProviderManager,
         getActiveTrailingStops,
-      })
+      }).catch((err) =>
+        logger.error("processRoutine failed", { error: String(err) })
+      )
     );
   },
 });
