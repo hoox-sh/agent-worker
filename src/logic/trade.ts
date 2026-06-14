@@ -15,7 +15,8 @@ export async function fetchMarkPrice(
 
     if (ex === "binance") {
       const res = await fetch(
-        `https://fapi.binance.com/fapi/v1/premiumIndex?symbol=${sym}`
+        `https://fapi.binance.com/fapi/v1/premiumIndex?symbol=${sym}`,
+        { signal: AbortSignal.timeout(5000) }
       );
       if (res.ok) {
         const data = (await res.json()) as { markPrice: string };
@@ -23,7 +24,8 @@ export async function fetchMarkPrice(
       }
     } else if (ex === "bybit") {
       const res = await fetch(
-        `https://api.bybit.com/v5/market/tickers?category=linear&symbol=${sym}`
+        `https://api.bybit.com/v5/market/tickers?category=linear&symbol=${sym}`,
+        { signal: AbortSignal.timeout(5000) }
       );
       if (res.ok) {
         const data = (await res.json()) as {
@@ -38,7 +40,8 @@ export async function fetchMarkPrice(
         sym = sym.replace("USDT", "_USDT");
       }
       const res = await fetch(
-        `https://contract.mexc.com/api/v1/contract/detail?symbol=${sym}`
+        `https://contract.mexc.com/api/v1/contract/detail?symbol=${sym}`,
+        { signal: AbortSignal.timeout(5000) }
       );
       if (res.ok) {
         const data = (await res.json()) as { data: { fairPrice: string } };

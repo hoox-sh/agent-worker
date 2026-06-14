@@ -34,7 +34,8 @@ describe("fetchMarkPrice", () => {
 
     expect(result).toBe(50000.12345678);
     expect(mockFetch).toHaveBeenCalledWith(
-      "https://fapi.binance.com/fapi/v1/premiumIndex?symbol=BTCUSDT"
+      "https://fapi.binance.com/fapi/v1/premiumIndex?symbol=BTCUSDT",
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
     );
   });
 
@@ -52,7 +53,8 @@ describe("fetchMarkPrice", () => {
 
     expect(result).toBe(50100.5);
     expect(mockFetch).toHaveBeenCalledWith(
-      "https://api.bybit.com/v5/market/tickers?category=linear&symbol=BTCUSDT"
+      "https://api.bybit.com/v5/market/tickers?category=linear&symbol=BTCUSDT",
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
     );
   });
 
@@ -68,7 +70,8 @@ describe("fetchMarkPrice", () => {
 
     expect(result).toBe(50200.75);
     expect(mockFetch).toHaveBeenCalledWith(
-      "https://contract.mexc.com/api/v1/contract/detail?symbol=BTC_USDT"
+      "https://contract.mexc.com/api/v1/contract/detail?symbol=BTC_USDT",
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
     );
   });
 
@@ -123,7 +126,8 @@ describe("fetchMarkPrice", () => {
     await fetchMarkPrice("binance", "BTC/USDT", mockLogger);
 
     expect(mockFetch).toHaveBeenCalledWith(
-      "https://fapi.binance.com/fapi/v1/premiumIndex?symbol=BTCUSDT"
+      "https://fapi.binance.com/fapi/v1/premiumIndex?symbol=BTCUSDT",
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
     );
   });
 });

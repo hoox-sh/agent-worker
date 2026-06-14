@@ -84,16 +84,49 @@ export async function processRoutine(
       );
     }
 
-    for (const position of openPositions) {
+    // Batch all mark price fetches in parallel before the loop
+    const markPriceResults = await Promise.all(
+      openPositions.map((pos) =>
+        fetchMarkPrice(pos.exchange, pos.symbol, logger)
+      )
+    );
+    const markPriceMap = new Map<number, number | null>();
+    openPositions.forEach((pos, i) => {
+      markPriceMap.set(i, markPriceResults[i]);
+    });
+
+    // Batch all KV watermark reads in parallel before the loop
+    const watermarkKeys = openPositions.map(
+      (pos) => `trade:watermark:${pos.exchange}:${pos.symbol}:${pos.side}`
+    );
+    const wmResults = await Promise.all(
+      watermarkKeys.map((key) => env.CONFIG_KV.get(key))
+    );
+    const watermarkMap = new Map<number, string | null>();
+    wmResults.forEach((val, i) => {
+      watermarkMap.set(i, val);
+    });
+
+    // Batch all TP hit KV reads in parallel
+    const tpKeys = openPositions.map(
+      (pos) => `trade:tp_hit:${pos.exchange}:${pos.symbol}:${pos.side}`
+    );
+    const tpResults = await Promise.all(
+      tpKeys.map((key) => env.CONFIG_KV.get(key))
+    );
+    const tpHitMap = new Map<number, string | null>();
+    tpResults.forEach((val, i) => {
+      tpHitMap.set(i, val);
+    });
+
+    // Process positions sequentially for state-dependent writes
+    for (let i = 0; i < openPositions.length; i++) {
+      const position = openPositions[i];
       logger.info(
         `Analyzing position: ${position.symbol} (${position.side}) - Quantity: ${position.size}`
       );
 
-      const markPrice = await fetchMarkPrice(
-        position.exchange,
-        position.symbol,
-        logger
-      );
+      const markPrice = markPriceMap.get(i) ?? null;
 
       if (markPrice !== null) {
         logger.info(
@@ -108,8 +141,7 @@ export async function processRoutine(
           totalUnrealizedPnl += pnl;
           logger.info(`Unrealized PnL for ${position.symbol}: ${pnl}`);
 
-          const wmKey = `trade:watermark:${position.exchange}:${position.symbol}:${position.side}`;
-          const currentWmStr = await env.CONFIG_KV.get(wmKey);
+          const currentWmStr = watermarkMap.get(i) ?? null;
           const currentWm = currentWmStr
             ? parseFloat(currentWmStr)
             : position.entry_price;
@@ -120,6 +152,7 @@ export async function processRoutine(
           if (position.side === "SHORT" && markPrice < currentWm)
             newWm = markPrice;
 
+          const wmKey = `trade:watermark:${position.exchange}:${position.symbol}:${position.side}`;
           if (newWm !== currentWm) {
             await env.CONFIG_KV.put(wmKey, newWm.toString());
           }
@@ -166,9 +199,9 @@ export async function processRoutine(
             triggerTp = true;
 
           if (triggerTp) {
-            const tpKey = `trade:tp_hit:${position.exchange}:${position.symbol}:${position.side}`;
-            const alreadyScaled = await env.CONFIG_KV.get(tpKey);
+            const alreadyScaled = tpHitMap.get(i) ?? null;
             if (!alreadyScaled) {
+              const tpKey = `trade:tp_hit:${position.exchange}:${position.symbol}:${position.side}`;
               logger.info(
                 `TAKE PROFIT TRIGGERED for ${position.symbol}! Scaling out 50%.`
               );
@@ -250,7 +283,19 @@ export async function processRoutine(
             ],
           };
 
-          const result = await pm.run(aiRequest);
+          const aiTimeoutMs = 15000;
+          const aiResultPromise = pm.run(aiRequest);
+          const aiTimeoutPromise = new Promise<never>((_, reject) => {
+            setTimeout(
+              () =>
+                reject(new Error(`AI call timed out after ${aiTimeoutMs}ms`)),
+              aiTimeoutMs
+            );
+          });
+          const result = await Promise.race([
+            aiResultPromise,
+            aiTimeoutPromise,
+          ]);
           if (result.success && result.data?.response) {
             logger.info("AI System Health Summary", {
               response: result.data.response,
