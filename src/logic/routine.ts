@@ -2,18 +2,30 @@ import { toError } from "@jango-blockchained/hoox-shared/errors";
 import { KVKeys } from "@jango-blockchained/hoox-shared/kvKeys";
 import { serviceFetch } from "@jango-blockchained/hoox-shared/service-bindings";
 import { trackAnalytics } from "@jango-blockchained/hoox-shared/analytics";
+import type { Logger } from "@jango-blockchained/hoox-shared/middleware";
+import type { ProviderManager } from "../providers";
 import { AIRequest } from "../types";
 import { fetchMarkPrice, sendCloseOrder } from "./trade";
+
+// --- Minimal env interface for processRoutine ---
+export interface RoutineEnv {
+  D1_SERVICE: Fetcher;
+  CONFIG_KV: KVNamespace;
+  TELEGRAM_SERVICE: Fetcher;
+  ANALYTICS_SERVICE: Fetcher;
+  INTERNAL_KEY_BINDING?: string;
+  AI?: Ai;
+}
 
 /**
  * Main agent processing routine.
  */
 export async function processRoutine(
-  env: any,
-  logger: any,
+  env: RoutineEnv,
+  logger: Logger,
   options: {
-    getProviderManager: (env: any) => any;
-    getActiveTrailingStops: (env: any) => Promise<string[]>;
+    getProviderManager: (env: RoutineEnv) => ProviderManager;
+    getActiveTrailingStops: (env: RoutineEnv) => Promise<string[]>;
   }
 ) {
   const { getProviderManager, getActiveTrailingStops } = options;

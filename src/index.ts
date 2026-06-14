@@ -25,8 +25,8 @@ import { serviceFetch } from "@jango-blockchained/hoox-shared/service-bindings";
 import { createCronHandler } from "@jango-blockchained/hoox-shared/cron-handler";
 
 import { fetchMarkPrice, sendCloseOrder } from "./logic/trade";
-import { runHousekeeping } from "./logic/housekeeping";
-import { processRoutine } from "./logic/routine";
+import { runHousekeeping, type HousekeepingEnv } from "./logic/housekeeping";
+import { processRoutine, type RoutineEnv } from "./logic/routine";
 
 const logger = createLogger({ service: "agent-worker" });
 
@@ -70,7 +70,10 @@ router.post(
   "/agent/housekeeping",
   async (request: Request, env: Env, ctx: ExecutionContext) => {
     try {
-      const results = await runHousekeeping(env, logger);
+      const results = await runHousekeeping(
+        env as unknown as HousekeepingEnv,
+        logger
+      );
       return createJsonResponse(results, 200);
     } catch (error: unknown) {
       return Errors.internal(error);
@@ -249,7 +252,10 @@ router.post(
     if (!parsed.success) return Errors.badRequest("Invalid payload");
     const body = parsed.data;
     const pm = getProviderManager(env);
-    const result = await pm.runEmbedding(body.text, body.provider);
+    const result = await pm.runEmbedding(
+      body.text,
+      body.provider as ProviderName | undefined
+    );
     return createJsonResponse(
       {
         success: result.success,
@@ -280,14 +286,15 @@ const cronHandler = createCronHandler<Env>({
   logger,
   handler: async (_event: ScheduledEvent, env: Env, ctx: ExecutionContext) => {
     ctx.waitUntil(
-      runHousekeeping(env, logger).catch((err) =>
+      runHousekeeping(env as unknown as HousekeepingEnv, logger).catch((err) =>
         logger.error("runHousekeeping failed", { error: String(err) })
       )
     );
     ctx.waitUntil(
-      processRoutine(env, logger, {
-        getProviderManager,
-        getActiveTrailingStops,
+      processRoutine(env as unknown as RoutineEnv, logger, {
+        getProviderManager: (e) => getProviderManager(e as unknown as Env),
+        getActiveTrailingStops: (e) =>
+          getActiveTrailingStops(e as unknown as Env),
       }).catch((err) =>
         logger.error("processRoutine failed", { error: String(err) })
       )
@@ -318,9 +325,10 @@ export default {
 
   // Export for testing
   processRoutine: (env: Env) =>
-    processRoutine(env, logger, {
-      getProviderManager,
-      getActiveTrailingStops,
+    processRoutine(env as unknown as RoutineEnv, logger, {
+      getProviderManager: (e) => getProviderManager(e as unknown as Env),
+      getActiveTrailingStops: (e) =>
+        getActiveTrailingStops(e as unknown as Env),
     }),
 };
 

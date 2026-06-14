@@ -2,13 +2,23 @@ import { toError } from "@jango-blockchained/hoox-shared/errors";
 import { KVKeys } from "@jango-blockchained/hoox-shared/kvKeys";
 import { serviceFetch } from "@jango-blockchained/hoox-shared/service-bindings";
 import { trackAnalytics } from "@jango-blockchained/hoox-shared/analytics";
+import type { Logger } from "@jango-blockchained/hoox-shared/middleware";
+
+// --- Minimal env interface for runHousekeeping ---
+export interface HousekeepingEnv {
+  CONFIG_KV: KVNamespace;
+  D1_SERVICE?: Fetcher;
+  TRADE_SERVICE?: Fetcher;
+  TELEGRAM_SERVICE?: Fetcher;
+  ANALYTICS_SERVICE?: Fetcher;
+}
 
 /**
  * Runs system-wide housekeeping checks.
  */
 export async function runHousekeeping(
-  env: any,
-  logger: any
+  env: HousekeepingEnv,
+  logger: Logger
 ): Promise<Record<string, unknown>> {
   const results: {
     timestamp: string;
