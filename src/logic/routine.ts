@@ -28,7 +28,7 @@ export async function processRoutine(
     getActiveTrailingStops: (env: RoutineEnv) => Promise<string[]>;
   }
 ) {
-  const { getProviderManager, getActiveTrailingStops } = options;
+  const { getProviderManager } = options;
 
   try {
     logger.info("Starting agent processing routine...");

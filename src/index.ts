@@ -3,11 +3,7 @@ import { ProviderManager, createProviderManager } from "./providers";
 import { AIRequest, AgentConfig, ProviderName } from "./types";
 import { ALL_MODELS } from "./models";
 import { z } from "zod/v4";
-import {
-  requireInternalAuth,
-  checkInternalAuth,
-  createInternalAuthMiddleware,
-} from "@jango-blockchained/hoox-shared/middleware";
+import { createInternalAuthMiddleware } from "@jango-blockchained/hoox-shared/middleware";
 import {
   Errors,
   createJsonResponse,
@@ -21,10 +17,8 @@ import {
   withRequestLog,
   corsHeaders,
 } from "@jango-blockchained/hoox-shared/middleware";
-import { serviceFetch } from "@jango-blockchained/hoox-shared/service-bindings";
 import { createCronHandler } from "@jango-blockchained/hoox-shared/cron-handler";
 
-import { fetchMarkPrice, sendCloseOrder } from "./logic/trade";
 import { runHousekeeping, type HousekeepingEnv } from "./logic/housekeeping";
 import { processRoutine, type RoutineEnv } from "./logic/routine";
 
