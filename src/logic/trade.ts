@@ -1,5 +1,12 @@
 import { toError } from "@jango-blockchained/hoox-shared/errors";
+import { type Logger } from "@jango-blockchained/hoox-shared/middleware";
 import { serviceFetch } from "@jango-blockchained/hoox-shared/service-bindings";
+
+/** Minimal env shape required by sendCloseOrder. */
+interface CloseOrderEnv {
+  AGENT_INTERNAL_KEY?: string;
+  TRADE_SERVICE?: Fetcher;
+}
 
 /**
  * Fetches the current mark price for a symbol from an exchange.
@@ -7,7 +14,7 @@ import { serviceFetch } from "@jango-blockchained/hoox-shared/service-bindings";
 export async function fetchMarkPrice(
   exchange: string,
   symbol: string,
-  logger?: any
+  logger: Logger
 ): Promise<number | null> {
   try {
     const ex = exchange.toLowerCase();
@@ -62,14 +69,14 @@ export async function fetchMarkPrice(
  * Sends a close order to the TRADE_SERVICE.
  */
 export async function sendCloseOrder(
-  env: any,
+  env: CloseOrderEnv,
   position: {
     exchange: string;
     symbol: string;
     side: "LONG" | "SHORT";
     size: number;
   },
-  logger?: any,
+  logger: Logger,
   qtyOverride?: number
 ) {
   const action = position.side === "LONG" ? "CLOSE_LONG" : "CLOSE_SHORT";
@@ -90,6 +97,10 @@ export async function sendCloseOrder(
       return;
     }
 
+    if (!env.TRADE_SERVICE) {
+      logger.error("TRADE_SERVICE binding not configured for close order");
+      return;
+    }
     const res = await serviceFetch(env.TRADE_SERVICE, "/webhook", payload, {
       headers: { "X-Internal-Auth-Key": internalKey },
     });

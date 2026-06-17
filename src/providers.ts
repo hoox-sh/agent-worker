@@ -1,7 +1,7 @@
 import { createLogger } from "@jango-blockchained/hoox-shared/middleware";
+import type { Ai } from "@cloudflare/workers-types";
 import {
   AIRequest,
-  AIResponse,
   AgentConfig,
   DEFAULT_AGENT_CONFIG,
   ProviderName,
@@ -9,9 +9,38 @@ import {
 } from "./types";
 import { KVKeys } from "@jango-blockchained/hoox-shared/kvKeys";
 
+/** Minimal shape of Workers AI text-generation responses we consume. */
+interface WorkersAIResponse {
+  response?: string;
+  _metadata?: { latency?: number };
+}
+
+/** OpenAI Chat Completions response fields used by the provider. */
+interface OpenAIResponse {
+  choices?: Array<{ message?: { content?: string } }>;
+  error?: { message?: string };
+  _metadata?: { latency?: number };
+}
+
+/** Anthropic Messages API response fields used by the provider. */
+interface AnthropicResponse {
+  content?: Array<{ text?: string }>;
+  error?: { message?: string };
+  _metadata?: { latency?: number };
+}
+
+/** Google generateContent response fields used by the provider. */
+interface GoogleResponse {
+  candidates?: Array<{
+    content?: { parts?: Array<{ text?: string }> };
+  }>;
+  error?: { message?: string };
+  _metadata?: { latency?: number };
+}
+
 export interface ProviderEnv {
   CONFIG_KV: KVNamespace;
-  AI: any; // Workers AI binding
+  AI: Ai;
 }
 
 export class ProviderManager {
@@ -117,7 +146,6 @@ export class ProviderManager {
     request: AIRequest
   ): Promise<ProviderResult> {
     const config = await this.loadConfig();
-    const startTime = Date.now();
 
     switch (provider) {
       case "workers-ai":
@@ -148,13 +176,14 @@ export class ProviderManager {
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
-      const response: any = await this.env.AI.run(
+      const response: WorkersAIResponse = (await this.env.AI.run(
         model,
         {
           messages: request.messages,
         },
-        { signal: controller.signal }
-      );
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- workers-types AbortSignal vs DOM AbortSignal incompatibility
+        { signal: controller.signal as any }
+      )) as WorkersAIResponse;
 
       clearTimeout(timeout);
 
@@ -217,7 +246,7 @@ export class ProviderManager {
 
       clearTimeout(timeout);
 
-      const data: any = await res.json();
+      const data: OpenAIResponse = await res.json();
 
       if (!res.ok) {
         return {
@@ -293,7 +322,7 @@ export class ProviderManager {
 
       clearTimeout(timeout);
 
-      const data: any = await res.json();
+      const data: AnthropicResponse = await res.json();
 
       if (!res.ok) {
         return {
@@ -363,7 +392,7 @@ export class ProviderManager {
         signal: controller.signal,
       });
 
-      const data: any = await res.json();
+      const data: GoogleResponse = await res.json();
 
       if (!res.ok) {
         return {
@@ -400,15 +429,13 @@ export class ProviderManager {
     text: string,
     provider: ProviderName = "workers-ai"
   ): Promise<ProviderResult> {
-    const config = await this.loadConfig();
-
     try {
       const model = "@cf/baai/bge-base-en-v1.5";
 
       if (provider === "workers-ai") {
-        const response = await this.env.AI.run(model, {
-          texts: [text],
-        });
+        const response = (await this.env.AI.run(model, {
+          text: [text],
+        })) as { data: Array<{ embedding: number[] }> };
 
         return {
           success: true,

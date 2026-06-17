@@ -1,5 +1,9 @@
 import { ScheduledEvent } from "@cloudflare/workers-types";
-import { ProviderManager, createProviderManager } from "./providers";
+import {
+  ProviderManager,
+  createProviderManager,
+  type ProviderEnv,
+} from "./providers";
 import { AIRequest, AgentConfig, ProviderName } from "./types";
 import { ALL_MODELS } from "./models";
 import { z } from "zod/v4";
@@ -28,7 +32,7 @@ const logger = createLogger({ service: "agent-worker" });
 // All bindings (KV, AI, D1, Services) are inherited from Cloudflare.Env
 
 function getProviderManager(env: Env): ProviderManager {
-  return createProviderManager(env);
+  return createProviderManager(env as unknown as ProviderEnv);
 }
 
 const router = createRouter<Env>();
@@ -62,7 +66,7 @@ const EmbeddingSchema = z.object({
 
 router.post(
   "/agent/housekeeping",
-  async (request: Request, env: Env, ctx: ExecutionContext) => {
+  async (request: Request, env: Env, _ctx: ExecutionContext) => {
     try {
       const results = await runHousekeeping(
         env as unknown as HousekeepingEnv,
@@ -78,7 +82,7 @@ router.post(
 
 router.post(
   "/agent/risk-override",
-  async (request: Request, env: Env, ctx: ExecutionContext) => {
+  async (request: Request, env: Env, _ctx: ExecutionContext) => {
     const parsed = RiskOverrideSchema.safeParse(await request.json());
     if (!parsed.success) return Errors.badRequest("Invalid payload");
     const body = parsed.data;
@@ -98,7 +102,7 @@ router.post(
 
 router.get(
   "/agent/status",
-  async (request: Request, env: Env, ctx: ExecutionContext) => {
+  async (request: Request, env: Env, _ctx: ExecutionContext) => {
     const pm = getProviderManager(env);
     const config = await pm.loadConfig();
     return createJsonResponse({
@@ -117,7 +121,7 @@ router.get(
 
 router.get(
   "/agent/config",
-  async (request: Request, env: Env, ctx: ExecutionContext) => {
+  async (request: Request, env: Env, _ctx: ExecutionContext) => {
     const pm = getProviderManager(env);
     const config = await pm.loadConfig();
     return createJsonResponse({
@@ -130,7 +134,7 @@ router.get(
 
 router.post(
   "/agent/config",
-  async (request: Request, env: Env, ctx: ExecutionContext) => {
+  async (request: Request, env: Env, _ctx: ExecutionContext) => {
     const parsed = AgentConfigUpdateSchema.safeParse(await request.json());
     if (!parsed.success) return Errors.badRequest("Invalid payload");
     const body = parsed.data as Partial<AgentConfig>;
@@ -143,12 +147,11 @@ router.post(
 
 router.post(
   "/agent/test-model",
-  async (request: Request, env: Env, ctx: ExecutionContext) => {
+  async (request: Request, env: Env, _ctx: ExecutionContext) => {
     const parsed = TestModelSchema.safeParse(await request.json());
     if (!parsed.success) return Errors.badRequest("Invalid payload");
     const body = parsed.data;
     const pm = getProviderManager(env);
-    const provider = body.provider || "workers-ai";
     const model = body.model;
 
     const testRequest: AIRequest = {
@@ -180,7 +183,7 @@ router.post(
 
 router.get(
   "/agent/health",
-  async (request: Request, env: Env, ctx: ExecutionContext) => {
+  async (_request: Request, env: Env, _ctx: ExecutionContext) => {
     const pm = getProviderManager(env);
     const status = await pm.getProviderStatus();
     return createJsonResponse({
@@ -192,7 +195,7 @@ router.get(
 
 router.get(
   "/agent/models",
-  async (request: Request, env: Env, ctx: ExecutionContext) => {
+  async (_request: Request, _env: Env, _ctx: ExecutionContext) => {
     return createJsonResponse({
       success: true,
       models: ALL_MODELS,
@@ -203,7 +206,7 @@ router.get(
 
 router.post(
   "/agent/chat",
-  async (request: Request, env: Env, ctx: ExecutionContext) => {
+  async (request: Request, env: Env, _ctx: ExecutionContext) => {
     const body = (await request.json()) as {
       messages?: AIRequest["messages"];
       systemPrompt?: string;
@@ -241,7 +244,7 @@ router.post(
 
 router.post(
   "/agent/embedding",
-  async (request: Request, env: Env, ctx: ExecutionContext) => {
+  async (request: Request, env: Env, _ctx: ExecutionContext) => {
     const parsed = EmbeddingSchema.safeParse(await request.json());
     if (!parsed.success) return Errors.badRequest("Invalid payload");
     const body = parsed.data;
@@ -270,7 +273,7 @@ router.get("/", async () => {
 
 router.get(
   "/health",
-  async (request: Request, env: Env, ctx: ExecutionContext) => {
+  async (_request: Request, _env: Env, _ctx: ExecutionContext) => {
     return healthCheck({ worker: "agent-worker" });
   }
 );

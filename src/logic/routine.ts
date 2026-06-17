@@ -13,7 +13,9 @@ export interface RoutineEnv {
   CONFIG_KV: KVNamespace;
   TELEGRAM_SERVICE: Fetcher;
   ANALYTICS_SERVICE: Fetcher;
+  TRADE_SERVICE?: Fetcher;
   INTERNAL_KEY_BINDING?: string;
+  AGENT_INTERNAL_KEY?: string;
   AI?: Ai;
 }
 
