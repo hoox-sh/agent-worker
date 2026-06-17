@@ -15,7 +15,10 @@ import {
 } from "@jango-blockchained/hoox-shared/errors";
 import { healthCheck } from "@jango-blockchained/hoox-shared/health";
 import { KVKeys } from "@jango-blockchained/hoox-shared/kvKeys";
-import { createRouter } from "@jango-blockchained/hoox-shared/router";
+import {
+  createRouter,
+  type MiddlewareHandler,
+} from "@jango-blockchained/hoox-shared/router";
 import {
   createLogger,
   withRequestLog,
@@ -36,7 +39,11 @@ function getProviderManager(env: Env): ProviderManager {
 }
 
 const router = createRouter<Env>();
-const requireAuth = createInternalAuthMiddleware();
+// Cast: createInternalAuthMiddleware returns MiddlewareHandler<InternalAuthEnv>
+// but our router is typed for MiddlewareHandler<Env>. The middleware only
+// reads `INTERNAL_KEY_BINDING` which is present on both types.
+const requireAuth =
+  createInternalAuthMiddleware() as unknown as MiddlewareHandler<Env>;
 
 // ── Zod validation schemas (S-02 audit fix) ──
 const RiskOverrideSchema = z.object({
