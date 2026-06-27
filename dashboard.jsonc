@@ -19,6 +19,16 @@
         "anthropic_key": "Anthropic API Key (Secret). DO NOT save plaintext via Dashboard. Manually execute: 'hoox secrets update-cf anthropic_key agent-worker'",
         "google_key": "Google Gemini API Key (Secret). DO NOT save plaintext via Dashboard. Manually execute: 'hoox secrets update-cf google_key agent-worker'",
       },
+      "secrets": {
+        "openai_key": true,
+        "anthropic_key": true,
+        "google_key": true,
+      },
+      "secret_commands": {
+        "openai_key": "hoox secrets update-cf openai_key agent-worker",
+        "anthropic_key": "hoox secrets update-cf anthropic_key agent-worker",
+        "google_key": "hoox secrets update-cf google_key agent-worker",
+      },
     },
     "cron": {
       "title": "Schedule",
