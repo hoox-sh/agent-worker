@@ -22,7 +22,7 @@ import {
 import {
   createLogger,
   withRequestLog,
-  corsHeaders,
+  internalCorsHeaders,
 } from "@jango-blockchained/hoox-shared/middleware";
 import { createCronHandler } from "@jango-blockchained/hoox-shared/cron-handler";
 
@@ -326,16 +326,14 @@ const cronHandler = createCronHandler<Env>({
 export default {
   fetch: withRequestLog<Env>(
     async (request: Request, env: Env, ctx: ExecutionContext) => {
-      const cors = corsHeaders();
+      // Internal worker: no open CORS (service bindings / dashboard only).
       if (request.method === "OPTIONS") {
-        return new Response(null, { status: 204, headers: cors });
+        return new Response(null, {
+          status: 204,
+          headers: internalCorsHeaders(),
+        });
       }
-      const response = await router.handle(request, env, ctx);
-      const newResponse = new Response(response.body, response);
-      for (const [key, value] of Object.entries(cors)) {
-        newResponse.headers.set(key, value);
-      }
-      return newResponse;
+      return router.handle(request, env, ctx);
     },
     { service: "agent-worker", module: "router" }
   ),
