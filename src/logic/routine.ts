@@ -3,6 +3,7 @@ import { KVKeys } from "@jango-blockchained/hoox-shared/kvKeys";
 import {
   authenticatedServiceFetch,
   D1_READ_AUTH_KEY_FIELDS,
+  TELEGRAM_ALERT_AUTH_KEY_FIELDS,
   resolveInternalAuthKey,
 } from "@jango-blockchained/hoox-shared/service-bindings";
 import { trackAnalytics } from "@jango-blockchained/hoox-shared/analytics";
@@ -52,38 +53,65 @@ export async function processRoutine(
       return;
     }
 
-    const [positionsResult, balancesResult] = await Promise.allSettled([
-      authenticatedServiceFetch(
-        env.D1_SERVICE,
-        env,
-        "/api/dashboard/positions",
-        undefined,
-        { method: "GET", internalKeyFields: D1_READ_AUTH_KEY_FIELDS }
-      ),
-      authenticatedServiceFetch(
-        env.D1_SERVICE,
-        env,
-        "/api/dashboard/balances",
-        undefined,
-        { method: "GET", internalKeyFields: D1_READ_AUTH_KEY_FIELDS }
-      ),
-    ]);
+    const pm = getProviderManager(env);
 
-    if (
-      positionsResult.status === "rejected" ||
-      !positionsResult.value.ok
-    ) {
-      const status =
-        positionsResult.status === "rejected"
-          ? String(positionsResult.reason)
-          : await positionsResult.value.text();
-      logger.error("Failed to fetch positions from D1_SERVICE", { status });
+    type FetchOutcome =
+      | { ok: true; response: Response }
+      | { ok: false; error: unknown };
+
+    const toFetchOutcome = async (
+      promise: Promise<Response>
+    ): Promise<FetchOutcome> => {
+      try {
+        return { ok: true, response: await promise };
+      } catch (error) {
+        return { ok: false, error };
+      }
+    };
+
+    const [positionsOutcome, balancesOutcome, killSwitch, config] =
+      await Promise.all([
+        toFetchOutcome(
+          authenticatedServiceFetch(
+            env.D1_SERVICE,
+            env,
+            "/api/dashboard/positions",
+            undefined,
+            { method: "GET", internalKeyFields: D1_READ_AUTH_KEY_FIELDS }
+          )
+        ),
+        toFetchOutcome(
+          authenticatedServiceFetch(
+            env.D1_SERVICE,
+            env,
+            "/api/dashboard/balances",
+            undefined,
+            { method: "GET", internalKeyFields: D1_READ_AUTH_KEY_FIELDS }
+          )
+        ),
+        env.CONFIG_KV.get(KVKeys.KV_TRADE_KILL_SWITCH),
+        pm.loadConfig(),
+      ]);
+
+    if (!positionsOutcome.ok) {
+      logger.error("Failed to fetch positions from D1_SERVICE", {
+        status: String(positionsOutcome.error),
+      });
       return;
     }
 
-    const positionsRes = positionsResult.value;
-    const balancesRes =
-      balancesResult.status === "fulfilled" ? balancesResult.value : null;
+    const positionsRes = positionsOutcome.response;
+    if (!positionsRes.ok) {
+      const status = await positionsRes.text();
+      logger.error("Failed to fetch positions from D1_SERVICE", { status });
+      return;
+    }
+    const balancesRes = balancesOutcome.ok ? balancesOutcome.response : null;
+    if (!balancesOutcome.ok) {
+      logger.warn(
+        `[ActiveTradeManagement] Failed to fetch account value from D1, using default: ${balancesOutcome.error}`
+      );
+    }
 
     const positionsData = (await positionsRes.json()) as {
       positions: Array<{
@@ -97,7 +125,6 @@ export async function processRoutine(
     const openPositions = positionsData.positions || [];
     logger.info(`Found ${openPositions.length} open positions.`);
 
-    const killSwitch = await env.CONFIG_KV.get(KVKeys.KV_TRADE_KILL_SWITCH);
     if (killSwitch === "true") {
       logger.warn(
         "Global kill switch is active. Skipping active trade management."
@@ -105,18 +132,11 @@ export async function processRoutine(
       return;
     }
 
-    const pm = getProviderManager(env);
-    const config = await pm.loadConfig();
-
     let totalUnrealizedPnl = 0;
     let accountValue = 10000;
 
     try {
-      if (balancesResult.status === "rejected") {
-        logger.warn(
-          `[ActiveTradeManagement] Failed to fetch account value from D1, using default: ${balancesResult.reason}`
-        );
-      } else if (balancesRes?.ok) {
+      if (balancesRes?.ok) {
         const balancesData = (await balancesRes.json()) as {
           totalBalance?: number;
         };
@@ -148,25 +168,21 @@ export async function processRoutine(
       markPriceMap.set(i, markPriceResults[i]);
     });
 
-    // Batch all KV watermark reads in parallel before the loop
+    // Batch watermark + TP KV reads in one parallel round
     const watermarkKeys = openPositions.map(
       (pos) => `trade:watermark:${pos.exchange}:${pos.symbol}:${pos.side}`
     );
-    const wmResults = await Promise.all(
-      watermarkKeys.map((key) => env.CONFIG_KV.get(key))
+    const tpKeys = openPositions.map(
+      (pos) => `trade:tp_hit:${pos.exchange}:${pos.symbol}:${pos.side}`
     );
+    const [wmResults, tpResults] = await Promise.all([
+      Promise.all(watermarkKeys.map((key) => env.CONFIG_KV.get(key))),
+      Promise.all(tpKeys.map((key) => env.CONFIG_KV.get(key))),
+    ]);
     const watermarkMap = new Map<number, string | null>();
     wmResults.forEach((val, i) => {
       watermarkMap.set(i, val);
     });
-
-    // Batch all TP hit KV reads in parallel
-    const tpKeys = openPositions.map(
-      (pos) => `trade:tp_hit:${pos.exchange}:${pos.symbol}:${pos.side}`
-    );
-    const tpResults = await Promise.all(
-      tpKeys.map((key) => env.CONFIG_KV.get(key))
-    );
     const tpHitMap = new Map<number, string | null>();
     tpResults.forEach((val, i) => {
       tpHitMap.set(i, val);
@@ -295,14 +311,18 @@ export async function processRoutine(
         accountValue,
       });
 
-      if (env.TELEGRAM_SERVICE && env.INTERNAL_KEY_BINDING) {
+      if (
+        env.TELEGRAM_SERVICE &&
+        resolveInternalAuthKey(env, TELEGRAM_ALERT_AUTH_KEY_FIELDS)
+      ) {
         await authenticatedServiceFetch(
           env.TELEGRAM_SERVICE,
           env,
           "/alert",
           {
             message: `🚨 EMERGENCY: Max daily drawdown reached (${pnlPercent.toFixed(2)}%). Global Kill Switch ENGAGED.`,
-          }
+          },
+          { internalKeyFields: TELEGRAM_ALERT_AUTH_KEY_FIELDS }
         );
       }
     }
@@ -406,14 +426,18 @@ export async function processRoutine(
                 cleaned
               );
 
-              if (env.TELEGRAM_SERVICE && env.INTERNAL_KEY_BINDING) {
+              if (
+                env.TELEGRAM_SERVICE &&
+                resolveInternalAuthKey(env, TELEGRAM_ALERT_AUTH_KEY_FIELDS)
+              ) {
                 await authenticatedServiceFetch(
                   env.TELEGRAM_SERVICE,
                   env,
                   "/alert",
                   {
                     message: `🧠 AI System Health Update:\n${cleaned}`,
-                  }
+                  },
+                  { internalKeyFields: TELEGRAM_ALERT_AUTH_KEY_FIELDS }
                 );
               }
             } else {
