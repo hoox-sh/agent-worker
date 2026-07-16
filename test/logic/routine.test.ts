@@ -899,7 +899,7 @@ describe("processRoutine - D1 authentication", () => {
         getActiveTrailingStops: m.getActiveTrailingStops,
       });
       expect(logger.error).toHaveBeenCalledWith(
-        "INTERNAL_KEY_BINDING not configured; cannot fetch D1 dashboard data"
+        "D1 read auth key not configured; cannot fetch D1 dashboard data"
       );
       expect(m.d1.fetch).not.toHaveBeenCalled();
     } finally {

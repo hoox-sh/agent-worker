@@ -1,6 +1,10 @@
 import { toError } from "@jango-blockchained/hoox-shared/errors";
 import { KVKeys } from "@jango-blockchained/hoox-shared/kvKeys";
-import { authenticatedServiceFetch } from "@jango-blockchained/hoox-shared/service-bindings";
+import {
+  authenticatedServiceFetch,
+  D1_READ_AUTH_KEY_FIELDS,
+  resolveInternalAuthKey,
+} from "@jango-blockchained/hoox-shared/service-bindings";
 import { trackAnalytics } from "@jango-blockchained/hoox-shared/analytics";
 import type { Logger } from "@jango-blockchained/hoox-shared/middleware";
 import type { ProviderManager } from "../providers";
@@ -41,9 +45,9 @@ export async function processRoutine(
   try {
     logger.info("Starting agent processing routine...");
 
-    if (!env.INTERNAL_KEY_BINDING) {
+    if (!resolveInternalAuthKey(env, D1_READ_AUTH_KEY_FIELDS)) {
       logger.error(
-        "INTERNAL_KEY_BINDING not configured; cannot fetch D1 dashboard data"
+        "D1 read auth key not configured; cannot fetch D1 dashboard data"
       );
       return;
     }
@@ -54,14 +58,14 @@ export async function processRoutine(
         env,
         "/api/dashboard/positions",
         undefined,
-        { method: "GET" }
+        { method: "GET", internalKeyFields: D1_READ_AUTH_KEY_FIELDS }
       ),
       authenticatedServiceFetch(
         env.D1_SERVICE,
         env,
         "/api/dashboard/balances",
         undefined,
-        { method: "GET" }
+        { method: "GET", internalKeyFields: D1_READ_AUTH_KEY_FIELDS }
       ),
     ]);
 
@@ -311,7 +315,10 @@ export async function processRoutine(
           env,
           "/api/logs",
           undefined,
-          { method: "GET" }
+          {
+            method: "GET",
+            internalKeyFields: D1_READ_AUTH_KEY_FIELDS,
+          }
         );
         if (systemLogsRes.ok && env.AI) {
           const logsData = (await systemLogsRes.json()) as {
