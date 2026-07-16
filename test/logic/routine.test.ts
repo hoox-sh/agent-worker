@@ -104,7 +104,7 @@ function createMockEnv(opts: MockEnvOptions = {}) {
         status: 200,
         headers: { "Content-Type": "application/json" },
       }),
-    "/api/dashboard/logs": () =>
+    "/api/logs": () =>
       new Response(JSON.stringify({ logs: systemLogs }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
@@ -158,6 +158,7 @@ function createMockEnv(opts: MockEnvOptions = {}) {
     TELEGRAM_SERVICE: telegram,
     ANALYTICS_SERVICE: analytics,
     TRADE_SERVICE: trade,
+    INTERNAL_KEY_BINDING: internalKey,
     AGENT_INTERNAL_KEY: internalKey,
   };
   if (hasAI) {
@@ -880,6 +881,33 @@ describe("processRoutine - housekeeping (AI health summary)", () => {
   });
 });
 
+describe("processRoutine - D1 authentication", () => {
+  let logger: ReturnType<typeof createMockLogger>;
+
+  beforeEach(() => {
+    mock.restore();
+    logger = createMockLogger();
+  });
+
+  test("aborts when INTERNAL_KEY_BINDING is not configured", async () => {
+    const m = createMockEnv({});
+    delete (m.env as Record<string, unknown>).INTERNAL_KEY_BINDING;
+
+    try {
+      await processRoutine(m.env, logger, {
+        getProviderManager: m.getProviderManager,
+        getActiveTrailingStops: m.getActiveTrailingStops,
+      });
+      expect(logger.error).toHaveBeenCalledWith(
+        "INTERNAL_KEY_BINDING not configured; cannot fetch D1 dashboard data"
+      );
+      expect(m.d1.fetch).not.toHaveBeenCalled();
+    } finally {
+      m.restoreFetch();
+    }
+  });
+});
+
 describe("processRoutine - error handling", () => {
   let logger: ReturnType<typeof createMockLogger>;
 
@@ -888,7 +916,7 @@ describe("processRoutine - error handling", () => {
     logger = createMockLogger();
   });
 
-  test("catches and logs unhandled errors", async () => {
+  test("logs D1 positions fetch failures and exits early", async () => {
     const m = createMockEnv({});
     // Make the D1 positions fetch throw
     m.d1.fetch = mock(async () => {
@@ -900,8 +928,8 @@ describe("processRoutine - error handling", () => {
         getActiveTrailingStops: m.getActiveTrailingStops,
       });
       expect(logger.error).toHaveBeenCalledWith(
-        "Error in agent routine",
-        expect.objectContaining({ error: expect.anything() })
+        "Failed to fetch positions from D1_SERVICE",
+        expect.objectContaining({ status: expect.any(String) })
       );
     } finally {
       m.restoreFetch();

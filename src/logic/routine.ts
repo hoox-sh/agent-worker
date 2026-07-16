@@ -25,6 +25,14 @@ export interface RoutineEnv {
   AI?: Ai;
 }
 
+function internalAuthHeaders(
+  env: RoutineEnv
+): Record<string, string> | undefined {
+  return env.INTERNAL_KEY_BINDING
+    ? { "X-Internal-Auth-Key": env.INTERNAL_KEY_BINDING }
+    : undefined;
+}
+
 /**
  * Main agent processing routine.
  */
@@ -41,18 +49,40 @@ export async function processRoutine(
   try {
     logger.info("Starting agent processing routine...");
 
-    const positionsRes = await serviceFetch(
-      env.D1_SERVICE,
-      "/api/dashboard/positions",
-      undefined,
-      { method: "GET" }
-    );
-    if (!positionsRes.ok) {
-      logger.error("Failed to fetch positions from D1_SERVICE", {
-        status: await positionsRes.text(),
-      });
+    const authHeaders = internalAuthHeaders(env);
+    if (!authHeaders) {
+      logger.error(
+        "INTERNAL_KEY_BINDING not configured; cannot fetch D1 dashboard data"
+      );
       return;
     }
+
+    const [positionsResult, balancesResult] = await Promise.allSettled([
+      serviceFetch(env.D1_SERVICE, "/api/dashboard/positions", undefined, {
+        method: "GET",
+        headers: authHeaders,
+      }),
+      serviceFetch(env.D1_SERVICE, "/api/dashboard/balances", undefined, {
+        method: "GET",
+        headers: authHeaders,
+      }),
+    ]);
+
+    if (
+      positionsResult.status === "rejected" ||
+      !positionsResult.value.ok
+    ) {
+      const status =
+        positionsResult.status === "rejected"
+          ? String(positionsResult.reason)
+          : await positionsResult.value.text();
+      logger.error("Failed to fetch positions from D1_SERVICE", { status });
+      return;
+    }
+
+    const positionsRes = positionsResult.value;
+    const balancesRes =
+      balancesResult.status === "fulfilled" ? balancesResult.value : null;
 
     const positionsData = (await positionsRes.json()) as {
       positions: Array<{
@@ -81,13 +111,11 @@ export async function processRoutine(
     let accountValue = 10000;
 
     try {
-      const balancesRes = await serviceFetch(
-        env.D1_SERVICE,
-        "/api/dashboard/balances",
-        undefined,
-        { method: "GET" }
-      );
-      if (balancesRes.ok) {
+      if (balancesResult.status === "rejected") {
+        logger.warn(
+          `[ActiveTradeManagement] Failed to fetch account value from D1, using default: ${balancesResult.reason}`
+        );
+      } else if (balancesRes?.ok) {
         const balancesData = (await balancesRes.json()) as {
           totalBalance?: number;
         };
@@ -97,10 +125,14 @@ export async function processRoutine(
             `[ActiveTradeManagement] Using account value from balances: ${accountValue}`
           );
         }
+      } else if (balancesRes) {
+        logger.warn(
+          `[ActiveTradeManagement] D1 balances request failed: ${balancesRes.status}`
+        );
       }
     } catch (err: unknown) {
       logger.warn(
-        `[ActiveTradeManagement] Failed to fetch account value from D1, using default: ${err}`
+        `[ActiveTradeManagement] Failed to parse account value from D1, using default: ${err}`
       );
     }
 
@@ -283,9 +315,9 @@ export async function processRoutine(
       try {
         const systemLogsRes = await serviceFetch(
           env.D1_SERVICE,
-          "/api/dashboard/logs",
+          "/api/logs",
           undefined,
-          { method: "GET" }
+          { method: "GET", headers: authHeaders }
         );
         if (systemLogsRes.ok && env.AI) {
           const logsData = (await systemLogsRes.json()) as {
