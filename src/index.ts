@@ -309,18 +309,19 @@ const cronHandler = createCronHandler<Env>({
   logger,
   handler: async (_event: ScheduledEvent, env: Env, ctx: ExecutionContext) => {
     ctx.waitUntil(
-      runHousekeeping(env as unknown as HousekeepingEnv, logger).catch((err) =>
-        logger.error("runHousekeeping failed", { error: String(err) })
-      )
-    );
-    ctx.waitUntil(
-      processRoutine(env as unknown as RoutineEnv, logger, {
-        getProviderManager: (e) => getProviderManager(e as unknown as Env),
-        getActiveTrailingStops: (e) =>
-          getActiveTrailingStops(e as unknown as Env),
-      }).catch((err) =>
-        logger.error("processRoutine failed", { error: String(err) })
-      )
+      Promise.all([
+        runHousekeeping(env as unknown as HousekeepingEnv, logger).catch(
+          (err) =>
+            logger.error("runHousekeeping failed", { error: String(err) })
+        ),
+        processRoutine(env as unknown as RoutineEnv, logger, {
+          getProviderManager: (e) => getProviderManager(e as unknown as Env),
+          getActiveTrailingStops: (e) =>
+            getActiveTrailingStops(e as unknown as Env),
+        }).catch((err) =>
+          logger.error("processRoutine failed", { error: String(err) })
+        ),
+      ])
     );
   },
 });

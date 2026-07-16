@@ -13,6 +13,34 @@ export interface HousekeepingEnv {
   ANALYTICS_SERVICE?: Fetcher;
 }
 
+type ServiceCheck = {
+  service: string;
+  status: string;
+  detail: unknown;
+};
+
+async function checkServiceHealth(
+  service: string,
+  fetcher: Fetcher
+): Promise<ServiceCheck> {
+  try {
+    const res = await serviceFetch(fetcher, "/health", undefined, {
+      method: "GET",
+    });
+    return {
+      service,
+      status: res.ok ? "ok" : "error",
+      detail: res.status,
+    };
+  } catch (error: unknown) {
+    return {
+      service,
+      status: "error",
+      detail: String(error),
+    };
+  }
+}
+
 /**
  * Runs system-wide housekeeping checks.
  */
@@ -38,68 +66,22 @@ export async function runHousekeeping(
       detail: kvTest ? "readable" : "empty",
     });
 
-    if (env.D1_SERVICE) {
-      try {
-        const d1Res = await serviceFetch(env.D1_SERVICE, "/health", undefined, {
-          method: "GET",
-        });
-        results.checks.push({
-          service: "D1_SERVICE",
-          status: d1Res.ok ? "ok" : "error",
-          detail: d1Res.status,
-        });
-      } catch (error: unknown) {
-        results.checks.push({
-          service: "D1_SERVICE",
-          status: "error",
-          detail: String(error),
-        });
-      }
-    }
-
-    if (env.TRADE_SERVICE) {
-      try {
-        const tradeRes = await serviceFetch(
-          env.TRADE_SERVICE,
-          "/health",
-          undefined,
-          { method: "GET" }
-        );
-        results.checks.push({
-          service: "TRADE_SERVICE",
-          status: tradeRes.ok ? "ok" : "error",
-          detail: tradeRes.status,
-        });
-      } catch (error: unknown) {
-        results.checks.push({
-          service: "TRADE_SERVICE",
-          status: "error",
-          detail: String(error),
-        });
-      }
-    }
-
-    if (env.TELEGRAM_SERVICE) {
-      try {
-        const tgRes = await serviceFetch(
-          env.TELEGRAM_SERVICE,
-          "/health",
-          undefined,
-          { method: "GET" }
-        );
-        results.checks.push({
-          service: "TELEGRAM_SERVICE",
-          status: tgRes.ok ? "ok" : "error",
-          detail: tgRes.status,
-        });
-      } catch (error: unknown) {
-        results.checks.push({
-          service: "TELEGRAM_SERVICE",
-          status: "error",
-          detail: String(error),
-        });
-      }
-    }
+    const serviceChecks = await Promise.all(
+      (
+        [
+          env.D1_SERVICE
+            ? checkServiceHealth("D1_SERVICE", env.D1_SERVICE)
+            : null,
+          env.TRADE_SERVICE
+            ? checkServiceHealth("TRADE_SERVICE", env.TRADE_SERVICE)
+            : null,
+          env.TELEGRAM_SERVICE
+            ? checkServiceHealth("TELEGRAM_SERVICE", env.TELEGRAM_SERVICE)
+            : null,
+        ] as Array<Promise<ServiceCheck> | null>
+      ).filter((check): check is Promise<ServiceCheck> => check !== null)
+    );
+    results.checks.push(...serviceChecks);
 
     await env.CONFIG_KV.put(
       KVKeys.KV_HOUSEKEEPING_LAST_CHECK,
