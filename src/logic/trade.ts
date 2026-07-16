@@ -103,9 +103,10 @@ export async function sendCloseOrder(
     }
     const res = await authenticatedServiceFetch(
       env.TRADE_SERVICE,
-      { INTERNAL_KEY_BINDING: internalKey },
+      env,
       "/webhook",
-      payload
+      payload,
+      { internalKey: internalKey }
     );
     if (!res.ok) {
       logger.error(`Failed to close position ${position.symbol}`, {
