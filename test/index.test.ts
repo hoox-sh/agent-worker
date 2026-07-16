@@ -158,9 +158,18 @@ describe("Agent Worker", () => {
   });
 
   describe("GET /agent/health", () => {
-    it("returns provider health status", async () => {
+    it("returns 401 without internal auth", async () => {
       const request = new Request("http://example.com/agent/health", {
         method: "GET",
+      });
+      const response = await worker.fetch(request, mockEnv, mockCtx);
+      expect(response.status).toBe(401);
+    });
+
+    it("returns provider health status when authorized", async () => {
+      const request = new Request("http://example.com/agent/health", {
+        method: "GET",
+        headers: { "X-Internal-Auth-Key": TEST_KEY },
       });
       const response = await worker.fetch(request, mockEnv, mockCtx);
       expect(response.status).toBe(200);

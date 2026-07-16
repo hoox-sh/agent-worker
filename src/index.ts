@@ -69,6 +69,26 @@ const EmbeddingSchema = z.object({
   provider: z.string().optional(),
 });
 
+const ChatMessageSchema = z.object({
+  role: z.enum(["system", "user", "assistant"]),
+  content: z.string().max(32000),
+});
+
+const AgentChatSchema = z
+  .object({
+    messages: z.array(ChatMessageSchema).max(50).optional(),
+    systemPrompt: z.string().max(8000).optional(),
+    prompt: z.string().max(32000).optional(),
+    temperature: z.number().min(0).max(2).optional(),
+    maxTokens: z.number().int().positive().max(8192).optional(),
+  })
+  .refine(
+    (body) =>
+      (body.messages && body.messages.length > 0) ||
+      (body.prompt && body.prompt.length > 0),
+    { message: "Either messages or prompt is required" }
+  );
+
 // --- Routes ---
 
 router.post(
@@ -197,7 +217,8 @@ router.get(
       success: true,
       providers: status,
     });
-  }
+  },
+  [requireAuth]
 );
 
 router.get(
@@ -214,13 +235,9 @@ router.get(
 router.post(
   "/agent/chat",
   async (request: Request, env: Env, _ctx: ExecutionContext) => {
-    const body = (await request.json()) as {
-      messages?: AIRequest["messages"];
-      systemPrompt?: string;
-      prompt?: string;
-      temperature?: number;
-      maxTokens?: number;
-    };
+    const parsed = AgentChatSchema.safeParse(await request.json());
+    if (!parsed.success) return Errors.badRequest("Invalid payload");
+    const body = parsed.data;
     const pm = getProviderManager(env);
     const testRequest: AIRequest = {
       messages: body.messages || [
