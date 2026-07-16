@@ -1,6 +1,6 @@
 import { toError } from "@jango-blockchained/hoox-shared/errors";
 import { KVKeys } from "@jango-blockchained/hoox-shared/kvKeys";
-import { serviceFetch } from "@jango-blockchained/hoox-shared/service-bindings";
+import { authenticatedServiceFetch } from "@jango-blockchained/hoox-shared/service-bindings";
 import { trackAnalytics } from "@jango-blockchained/hoox-shared/analytics";
 import type { Logger } from "@jango-blockchained/hoox-shared/middleware";
 import type { ProviderManager } from "../providers";
@@ -25,14 +25,6 @@ export interface RoutineEnv {
   AI?: Ai;
 }
 
-function internalAuthHeaders(
-  env: RoutineEnv
-): Record<string, string> | undefined {
-  return env.INTERNAL_KEY_BINDING
-    ? { "X-Internal-Auth-Key": env.INTERNAL_KEY_BINDING }
-    : undefined;
-}
-
 /**
  * Main agent processing routine.
  */
@@ -49,8 +41,7 @@ export async function processRoutine(
   try {
     logger.info("Starting agent processing routine...");
 
-    const authHeaders = internalAuthHeaders(env);
-    if (!authHeaders) {
+    if (!env.INTERNAL_KEY_BINDING) {
       logger.error(
         "INTERNAL_KEY_BINDING not configured; cannot fetch D1 dashboard data"
       );
@@ -58,14 +49,20 @@ export async function processRoutine(
     }
 
     const [positionsResult, balancesResult] = await Promise.allSettled([
-      serviceFetch(env.D1_SERVICE, "/api/dashboard/positions", undefined, {
-        method: "GET",
-        headers: authHeaders,
-      }),
-      serviceFetch(env.D1_SERVICE, "/api/dashboard/balances", undefined, {
-        method: "GET",
-        headers: authHeaders,
-      }),
+      authenticatedServiceFetch(
+        env.D1_SERVICE,
+        env,
+        "/api/dashboard/positions",
+        undefined,
+        { method: "GET" }
+      ),
+      authenticatedServiceFetch(
+        env.D1_SERVICE,
+        env,
+        "/api/dashboard/balances",
+        undefined,
+        { method: "GET" }
+      ),
     ]);
 
     if (
@@ -294,17 +291,13 @@ export async function processRoutine(
         accountValue,
       });
 
-      if (env.TELEGRAM_SERVICE) {
-        await serviceFetch(
+      if (env.TELEGRAM_SERVICE && env.INTERNAL_KEY_BINDING) {
+        await authenticatedServiceFetch(
           env.TELEGRAM_SERVICE,
+          env,
           "/alert",
           {
             message: `🚨 EMERGENCY: Max daily drawdown reached (${pnlPercent.toFixed(2)}%). Global Kill Switch ENGAGED.`,
-          },
-          {
-            headers: env.INTERNAL_KEY_BINDING
-              ? { "X-Internal-Auth-Key": env.INTERNAL_KEY_BINDING }
-              : undefined,
           }
         );
       }
@@ -313,11 +306,12 @@ export async function processRoutine(
     const currentMin = new Date().getMinutes();
     if (currentMin >= 0 && currentMin < 5) {
       try {
-        const systemLogsRes = await serviceFetch(
+        const systemLogsRes = await authenticatedServiceFetch(
           env.D1_SERVICE,
+          env,
           "/api/logs",
           undefined,
-          { method: "GET", headers: authHeaders }
+          { method: "GET" }
         );
         if (systemLogsRes.ok && env.AI) {
           const logsData = (await systemLogsRes.json()) as {
@@ -405,17 +399,13 @@ export async function processRoutine(
                 cleaned
               );
 
-              if (env.TELEGRAM_SERVICE) {
-                await serviceFetch(
+              if (env.TELEGRAM_SERVICE && env.INTERNAL_KEY_BINDING) {
+                await authenticatedServiceFetch(
                   env.TELEGRAM_SERVICE,
+                  env,
                   "/alert",
                   {
                     message: `🧠 AI System Health Update:\n${cleaned}`,
-                  },
-                  {
-                    headers: env.INTERNAL_KEY_BINDING
-                      ? { "X-Internal-Auth-Key": env.INTERNAL_KEY_BINDING }
-                      : undefined,
                   }
                 );
               }

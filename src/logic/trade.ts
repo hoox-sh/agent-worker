@@ -1,6 +1,6 @@
 import { toError } from "@jango-blockchained/hoox-shared/errors";
 import { type Logger } from "@jango-blockchained/hoox-shared/middleware";
-import { serviceFetch } from "@jango-blockchained/hoox-shared/service-bindings";
+import { authenticatedServiceFetch } from "@jango-blockchained/hoox-shared/service-bindings";
 
 /** Minimal env shape required by sendCloseOrder. */
 interface CloseOrderEnv {
@@ -101,9 +101,12 @@ export async function sendCloseOrder(
       logger.error("TRADE_SERVICE binding not configured for close order");
       return;
     }
-    const res = await serviceFetch(env.TRADE_SERVICE, "/webhook", payload, {
-      headers: { "X-Internal-Auth-Key": internalKey },
-    });
+    const res = await authenticatedServiceFetch(
+      env.TRADE_SERVICE,
+      { INTERNAL_KEY_BINDING: internalKey },
+      "/webhook",
+      payload
+    );
     if (!res.ok) {
       logger.error(`Failed to close position ${position.symbol}`, {
         status: await res.text(),
