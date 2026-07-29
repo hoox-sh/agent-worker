@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2026 HOOX · HOOX · jango-blockchained
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/**
  * Unit tests for ProviderManager (agent-worker)
  * Run with: bun test workers/agent-worker/test/providers.test.ts
  */

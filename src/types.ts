@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 HOOX · HOOX · jango-blockchained
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 export type ProviderName = "workers-ai" | "openai" | "anthropic" | "google";
 
 export type TaskType =

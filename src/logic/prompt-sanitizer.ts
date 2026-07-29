@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2026 HOOX · HOOX · jango-blockchained
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/**
  * Prompt-injection sanitization helpers for the agent-worker.
  *
  * Used by `src/logic/routine.ts` to defend against C-6

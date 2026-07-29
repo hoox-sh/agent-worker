@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2026 HOOX · HOOX · jango-blockchained
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/**
  * Tests for the agent-worker's main processRoutine.
  * Covers the four action paths: trailing-stop, take-profit, kill-switch, housekeeping.
  *
@@ -36,6 +41,7 @@ function createMockFetcher(handlers: Record<string, () => Response> = {}) {
 
 interface MockEnvOptions {
   positions?: Array<{
+    id?: string;
     exchange: string;
     symbol: string;
     side: "LONG" | "SHORT";
@@ -343,7 +349,44 @@ describe("processRoutine - setup and early-exit paths", () => {
         getProviderManager: m.getProviderManager,
         getActiveTrailingStops: m.getActiveTrailingStops,
       });
-      expect(logger.info).toHaveBeenCalledWith("Found 0 open positions.");
+      expect(logger.info).toHaveBeenCalledWith("Found 0 open live positions.");
+    } finally {
+      m.restoreFetch();
+    }
+  });
+
+  test("skips testnet positions and never closes them on live", async () => {
+    const m = createMockEnv({
+      positions: [
+        {
+          id: "binance-testnet-BTCUSDT-LONG",
+          exchange: "binance",
+          symbol: "BTCUSDT",
+          side: "LONG",
+          size: 1,
+          entry_price: 100,
+        } as {
+          exchange: string;
+          symbol: string;
+          side: "LONG" | "SHORT";
+          size: number;
+          entry_price: number;
+        },
+      ],
+      markPrice: 50, // would trigger trailing stop if managed
+      agentConfig: { trailingStopPercent: 0.05, takeProfitPercent: 0.1 },
+    });
+    try {
+      await processRoutine(m.env, logger, {
+        getProviderManager: m.getProviderManager,
+        getActiveTrailingStops: m.getActiveTrailingStops,
+      });
+      expect(logger.info).toHaveBeenCalledWith(
+        "Skipping 1 testnet position(s) from active management"
+      );
+      expect(logger.info).toHaveBeenCalledWith("Found 0 open live positions.");
+      // Must not issue a live close for a testnet-only ledger row
+      expect(m.trade.fetch).not.toHaveBeenCalled();
     } finally {
       m.restoreFetch();
     }

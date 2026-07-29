@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 HOOX · HOOX · jango-blockchained
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import { describe, expect, test, vi, beforeEach } from "bun:test";
 import worker from "../src/index";
 import { checkInternalAuth } from "@jango-blockchained/hoox-shared/middleware";
@@ -157,6 +162,8 @@ describe("processRoutine error paths", () => {
         fetch: vi.fn().mockResolvedValue({ ok: true }),
       },
       AGENT_INTERNAL_KEY: "test-key",
+      // D1 dashboard reads resolve INTERNAL_KEY_BINDING (legacy full key).
+      INTERNAL_KEY_BINDING: "test-key",
     };
   });
 

@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 HOOX · HOOX · jango-blockchained
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import { toError } from "@jango-blockchained/hoox-shared/errors";
 import { KVKeys } from "@jango-blockchained/hoox-shared/kvKeys";
 import {
@@ -115,6 +120,7 @@ export async function processRoutine(
 
     const positionsData = (await positionsRes.json()) as {
       positions: Array<{
+        id?: string;
         exchange: string;
         symbol: string;
         side: "LONG" | "SHORT";
@@ -122,8 +128,20 @@ export async function processRoutine(
         entry_price: number;
       }>;
     };
-    const openPositions = positionsData.positions || [];
-    logger.info(`Found ${openPositions.length} open positions.`);
+    // Testnet ledger rows use id `{exchange}-testnet-{symbol}-{side}` and
+    // must never enter live risk management (drawdown / TP / trailing closes).
+    // Closes without `test: true` would hit live exchange hosts.
+    const allOpen = positionsData.positions || [];
+    const openPositions = allOpen.filter(
+      (p) => !String(p.id ?? "").includes("-testnet-")
+    );
+    const skippedTest = allOpen.length - openPositions.length;
+    if (skippedTest > 0) {
+      logger.info(
+        `Skipping ${skippedTest} testnet position(s) from active management`
+      );
+    }
+    logger.info(`Found ${openPositions.length} open live positions.`);
 
     if (killSwitch === "true") {
       logger.warn(
