@@ -2,7 +2,7 @@
   "name": "agent-worker",
   "version": "1.0.0",
   "private": true,
-  "description": "AI-powered risk manager for Hoox trading system (5min cron)",
+  "description": "HOOX AI risk manager worker: 5-minute cron, trailing stops, multi-provider LLM fallback (Workers AI \u2192 OpenAI \u2192 Anthropic \u2192 Gemini), kill switch.",
   "license": "Apache-2.0",
   "type": "module",
   "dependencies": {
@@ -21,5 +21,9 @@
     "typescript": "^6.0.3",
     "wrangler": "^4.95.0"
   },
-  "author": "jango-blockchained (hoox-sh)"
+  "author": "jango-blockchained (hoox-sh)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hoox-sh/agent-worker.git"
+  }
 }
