@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2026 HOOX · HOOX · jango-blockchained
+ * Copyright (c) 2026 HOOX · HOOX · jango-blockchained (hoox-sh)
  * SPDX-License-Identifier: Apache-2.0
  */
 
 import { describe, expect, test, vi, beforeEach } from "bun:test";
 import worker from "../src/index";
-import { checkInternalAuth } from "@jango-blockchained/hoox-shared/middleware";
+import { checkInternalAuth } from "@hoox-sh/hoox-shared/middleware";
 import { fetchMarkPrice, sendCloseOrder } from "../src/logic/trade";
 
 describe("checkInternalAuth", () => {

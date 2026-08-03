@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2026 HOOX · HOOX · jango-blockchained
+ * Copyright (c) 2026 HOOX · HOOX · jango-blockchained (hoox-sh)
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { createLogger } from "@jango-blockchained/hoox-shared/middleware";
+import { createLogger } from "@hoox-sh/hoox-shared/middleware";
 import type { Ai } from "@cloudflare/workers-types";
 import {
   AIRequest,
@@ -12,7 +12,7 @@ import {
   ProviderName,
   ProviderResult,
 } from "./types";
-import { KVKeys } from "@jango-blockchained/hoox-shared/kvKeys";
+import { KVKeys } from "@hoox-sh/hoox-shared/kvKeys";
 
 /** Minimal shape of Workers AI text-generation responses we consume. */
 interface WorkersAIResponse {

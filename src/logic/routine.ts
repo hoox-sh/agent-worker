@@ -1,18 +1,18 @@
 /**
- * Copyright (c) 2026 HOOX · HOOX · jango-blockchained
+ * Copyright (c) 2026 HOOX · HOOX · jango-blockchained (hoox-sh)
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { toError } from "@jango-blockchained/hoox-shared/errors";
-import { KVKeys } from "@jango-blockchained/hoox-shared/kvKeys";
+import { toError } from "@hoox-sh/hoox-shared/errors";
+import { KVKeys } from "@hoox-sh/hoox-shared/kvKeys";
 import {
   authenticatedServiceFetch,
   D1_READ_AUTH_KEY_FIELDS,
   TELEGRAM_ALERT_AUTH_KEY_FIELDS,
   resolveInternalAuthKey,
-} from "@jango-blockchained/hoox-shared/service-bindings";
-import { trackAnalytics } from "@jango-blockchained/hoox-shared/analytics";
-import type { Logger } from "@jango-blockchained/hoox-shared/middleware";
+} from "@hoox-sh/hoox-shared/service-bindings";
+import { trackAnalytics } from "@hoox-sh/hoox-shared/analytics";
+import type { Logger } from "@hoox-sh/hoox-shared/middleware";
 import type { ProviderManager } from "../providers";
 import { AIRequest } from "../types";
 import { fetchMarkPrice, sendCloseOrder } from "./trade";

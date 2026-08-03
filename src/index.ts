@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 HOOX · HOOX · jango-blockchained
+ * Copyright (c) 2026 HOOX · HOOX · jango-blockchained (hoox-sh)
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -12,26 +12,26 @@ import {
 import { AIRequest, AgentConfig, ProviderName } from "./types";
 import { ALL_MODELS } from "./models";
 import { z } from "zod/v4";
-import { createInternalAuthMiddleware } from "@jango-blockchained/hoox-shared/middleware";
+import { createInternalAuthMiddleware } from "@hoox-sh/hoox-shared/middleware";
 import {
   Errors,
   createJsonResponse,
   toError,
-} from "@jango-blockchained/hoox-shared/errors";
-import { healthCheck } from "@jango-blockchained/hoox-shared/health";
-import { KVKeys } from "@jango-blockchained/hoox-shared/kvKeys";
+} from "@hoox-sh/hoox-shared/errors";
+import { healthCheck } from "@hoox-sh/hoox-shared/health";
+import { KVKeys } from "@hoox-sh/hoox-shared/kvKeys";
 import {
   createRouter,
   type MiddlewareHandler,
-} from "@jango-blockchained/hoox-shared/router";
+} from "@hoox-sh/hoox-shared/router";
 import {
   createLogger,
   withRequestLog,
   corsHeaders,
   resolveCorsOptions,
   internalCorsHeaders,
-} from "@jango-blockchained/hoox-shared/middleware";
-import { createCronHandler } from "@jango-blockchained/hoox-shared/cron-handler";
+} from "@hoox-sh/hoox-shared/middleware";
+import { createCronHandler } from "@hoox-sh/hoox-shared/cron-handler";
 
 import { runHousekeeping, type HousekeepingEnv } from "./logic/housekeeping";
 import { processRoutine, type RoutineEnv } from "./logic/routine";

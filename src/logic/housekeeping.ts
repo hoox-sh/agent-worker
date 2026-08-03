@@ -1,13 +1,13 @@
 /**
- * Copyright (c) 2026 HOOX · HOOX · jango-blockchained
+ * Copyright (c) 2026 HOOX · HOOX · jango-blockchained (hoox-sh)
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { toError } from "@jango-blockchained/hoox-shared/errors";
-import { KVKeys } from "@jango-blockchained/hoox-shared/kvKeys";
-import { serviceFetch } from "@jango-blockchained/hoox-shared/service-bindings";
-import { trackAnalytics } from "@jango-blockchained/hoox-shared/analytics";
-import type { Logger } from "@jango-blockchained/hoox-shared/middleware";
+import { toError } from "@hoox-sh/hoox-shared/errors";
+import { KVKeys } from "@hoox-sh/hoox-shared/kvKeys";
+import { serviceFetch } from "@hoox-sh/hoox-shared/service-bindings";
+import { trackAnalytics } from "@hoox-sh/hoox-shared/analytics";
+import type { Logger } from "@hoox-sh/hoox-shared/middleware";
 
 // --- Minimal env interface for runHousekeeping ---
 export interface HousekeepingEnv {
