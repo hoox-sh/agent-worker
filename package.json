@@ -2,7 +2,7 @@
   "name": "agent-worker",
   "version": "1.0.0",
   "private": true,
-  "description": "HOOX AI risk manager worker: 5-minute cron, trailing stops, multi-provider LLM fallback (Workers AI \u2192 OpenAI \u2192 Anthropic \u2192 Gemini), kill switch.",
+  "description": "HOOX AI risk manager worker: configurable cron (1\u20131440 min), trailing stops, multi-provider LLM fallback (Workers AI \u2192 OpenAI \u2192 Anthropic \u2192 Gemini), kill switch.",
   "license": "Apache-2.0",
   "type": "module",
   "dependencies": {

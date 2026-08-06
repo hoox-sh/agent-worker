@@ -1,6 +1,6 @@
 # HOOX · Agent Worker
 
-**Autonomous risk management agent — runs every 5 minutes, assesses portfolio entropy, pulls the kill switch when variance exceeds thresholds.**
+**Autonomous risk management agent — configurable cron (1–1440 minutes), assesses portfolio entropy, pulls the kill switch when variance exceeds thresholds.**
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/) [![Runtime](https://img.shields.io/badge/Runtime-Bun-black?logo=bun)](https://bun.sh) [![Platform](https://img.shields.io/badge/Platform-Cloudflare%C2%AE%20Workers-orange?logo=cloudflare)](https://workers.cloudflare.com/) [![License](https://img.shields.io/badge/License-CC%20BY%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by/4.0/)
 
@@ -9,17 +9,53 @@
 
 ---
 
-The agent-worker is a cron-driven autonomous agent (schedule: `*/5 * * * *`) that applies AI-driven risk management across the entire portfolio. On each tick it fetches all open positions from the [`d1-worker`](https://github.com/hoox-sh/d1-worker), evaluates trailing-stop watermarks stored in KV, computes unrealized PnL, and determines whether to close positions, adjust stops, or engage the global kill switch.
+The agent-worker is a cron-driven autonomous agent that applies AI-driven risk management across the entire portfolio. On each tick it fetches all open positions from the [`d1-worker`](https://github.com/hoox-sh/d1-worker), evaluates trailing-stop watermarks stored in KV, computes unrealized PnL, and determines whether to close positions, adjust stops, or engage the global kill switch.
+
+The schedule is **not** fixed at 5 minutes. You pick any interval from **1 to 1440 minutes** and set the matching Cloudflare cron expression in `wrangler.jsonc` (default in this repo: **every 15 minutes**).
 
 Risk assessment is routed through a multi-provider AI backend with automatic fallback: **Workers AI → OpenAI → Anthropic → Google Gemini**. Each provider is abstracted behind a `ProviderManager` that handles model selection, prompt templating, and response parsing. If daily drawdown breaches the configured threshold (`trade:max_daily_drawdown_percent` in KV), the kill switch flips — all subsequent signals through the gateway are dropped until manually reset.
 
 The worker also exposes a full REST API for dashboard integration: manual housekeeping triggers, risk-override configuration, model testing, embedding generation, and chat completion.
 
+### Cron setup (1–1440 minutes)
+
+Cloudflare Workers use standard 5-field cron expressions under `triggers.crons`. Choose an interval in **minutes** (1–1440) and map it as follows:
+
+| Interval (minutes) | Cron expression     | Notes                          |
+| ------------------ | ------------------- | ------------------------------ |
+| 1                  | `* * * * *`         | Every minute                   |
+| 5                  | `*/5 * * * *`       | Every 5 minutes                |
+| 10                 | `*/10 * * * *`      |                                |
+| 15                 | `*/15 * * * *`      | **Default** in this repo       |
+| 30                 | `*/30 * * * *`      |                                |
+| 60                 | `0 * * * *`         | Every hour on the hour         |
+| 120                | `0 */2 * * *`       | Every 2 hours                  |
+| 360                | `0 */6 * * *`       | Every 6 hours                  |
+| 720                | `0 */12 * * *`      | Every 12 hours                 |
+| 1440               | `0 0 * * *`         | Once daily (midnight UTC)      |
+
+**Rules of thumb:**
+
+- **1–59 minutes:** use `*/N * * * *` (or `* * * * *` for 1).
+- **Multiples of 60:** use `0 */H * * *` where `H = minutes / 60` (cap at 23 for hours-of-day; use `0 0 * * *` for 1440).
+- **Disable schedule:** set `"crons": []` — manual `POST /agent/housekeeping` still works.
+- Keep `dashboard.jsonc` → `cron.interval_minutes` (1–1440, free number input) aligned with your wrangler expression for operator documentation.
+
+Example:
+
+```jsonc
+"triggers": {
+  "crons": ["*/15 * * * *"]
+}
+```
+
+Redeploy after changing the schedule: `hoox deploy worker agent-worker` (or `wrangler deploy` from this package).
+
 ### Role in the Mesh
 
 ```
         ┌──────────────────────┐
-        │  agent-worker        │  ← private, cron: */5 * * * *
+        │  agent-worker        │  ← private, cron: 1–1440 min (default */15)
         │  (AI risk assessor)  │
         └──┬───────┬───────┬───┘
            │       │       │
@@ -55,15 +91,15 @@ The worker also exposes a full REST API for dashboard integration: manual housek
 
 ### Entry Points
 
-| Trigger     | Path / Event           | Description                          |
-| ----------- | ---------------------- | ------------------------------------ |
-| `scheduled` | `*/5 * * * *`          | `runHousekeeping` + `processRoutine` |
-| `POST`      | `/agent/housekeeping`  | Manual cron trigger (from dashboard) |
-| `POST`      | `/agent/risk-override` | Set `trailingStopPercent` in KV      |
-| `GET/POST`  | `/agent/config`        | Read/update `AgentConfig`            |
-| `POST`      | `/agent/chat`          | Generic AI chat completion           |
-| `POST`      | `/agent/embedding`     | Generate text embeddings             |
-| `GET`       | `/agent/health`        | Provider health status               |
+| Trigger     | Path / Event                    | Description                          |
+| ----------- | ------------------------------- | ------------------------------------ |
+| `scheduled` | wrangler `triggers.crons`       | `runHousekeeping` + `processRoutine` |
+| `POST`      | `/agent/housekeeping`           | Manual cron trigger (from dashboard) |
+| `POST`      | `/agent/risk-override`          | Set `trailingStopPercent` in KV      |
+| `GET/POST`  | `/agent/config`                 | Read/update `AgentConfig`            |
+| `POST`      | `/agent/chat`                   | Generic AI chat completion           |
+| `POST`      | `/agent/embedding`              | Generate text embeddings             |
+| `GET`       | `/agent/health`                 | Provider health status               |
 
 ### Development
 
@@ -75,7 +111,7 @@ bun test workers/agent-worker
 
 | Direction | Peers |
 | --------- | ----- |
-| **Called by** | Cloudflare Cron (`*/5 * * * *`) and [dashboard](https://github.com/hoox-sh/hoox/tree/main/workers/dashboard) REST (housekeeping, chat, config). |
+| **Called by** | Cloudflare Cron (`triggers.crons`, default `*/15 * * * *`) and [dashboard](https://github.com/hoox-sh/hoox/tree/main/workers/dashboard) REST (housekeeping, chat, config). |
 | **This worker calls** | See list below |
 
 - **[d1-worker](https://github.com/hoox-sh/d1-worker)** — D1_SERVICE — open positions / history
@@ -89,7 +125,7 @@ Full mesh (all isolates live as git submodules under [`hoox-sh/hoox`](https://gi
 | ------- | ---- | ---------- |
 | [hoox-worker](https://github.com/hoox-sh/hoox-worker) | Public webhook gateway (WAF, idempotency, dispatch) | monorepo `workers/hoox-worker` |
 | [trade-worker](https://github.com/hoox-sh/trade-worker) | Multi-exchange order execution (Binance / Bybit / MEXC) | monorepo `workers/trade-worker` |
-| [agent-worker](https://github.com/hoox-sh/agent-worker) | AI risk manager (5-min cron, kill switch) | monorepo `workers/agent-worker` |
+| [agent-worker](https://github.com/hoox-sh/agent-worker) | AI risk manager (configurable cron 1–1440 min, kill switch) | monorepo `workers/agent-worker` |
 | [d1-worker](https://github.com/hoox-sh/d1-worker) | D1 SQL proxy + settings / balances / positions | monorepo `workers/d1-worker` |
 | [telegram-worker](https://github.com/hoox-sh/telegram-worker) | Alerts, bot commands, RAG copilot | monorepo `workers/telegram-worker` |
 | [email-worker](https://github.com/hoox-sh/email-worker) | Mailgun / email signal parsing → trade | monorepo `workers/email-worker` |
