@@ -55,10 +55,8 @@
   "vars": {},
   "ai": {
     "binding": "AI"
-  },
-  // Required for trackAnalytics to authenticate with analytics-worker.
-  // Set via: wrangler secret put INTERNAL_KEY_BINDING
-  "secrets": [
-    "INTERNAL_KEY_BINDING"
-  ]
+  }
+  // Secrets (INTERNAL_KEY_BINDING, AGENT_INTERNAL_KEY, etc.) are set via:
+  //   wrangler secret put INTERNAL_KEY_BINDING
+  // or: hoox secrets set agent-worker INTERNAL_KEY_BINDING
 }
