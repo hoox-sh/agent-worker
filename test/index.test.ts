@@ -63,6 +63,56 @@ describe("Agent Worker", () => {
       const json: any = await response.json();
       expect(json.success).toBe(true);
       expect(json.message).toBe("Risk override applied");
+      expect(json.applied).toContain("trailingStopPercent");
+    });
+
+    it("engages kill switch via action", async () => {
+      const request = new Request("http://example.com/agent/risk-override", {
+        method: "POST",
+        headers: { "X-Internal-Auth-Key": TEST_KEY },
+        body: JSON.stringify({
+          action: "engage_kill_switch",
+          reason: "dashboard override",
+        }),
+      });
+      const response = await worker.fetch(request, mockEnv, mockCtx);
+      expect(response.status).toBe(200);
+      const json: any = await response.json();
+      expect(json.success).toBe(true);
+      expect(json.applied).toContain("engage_kill_switch");
+      expect(mockEnv.CONFIG_KV.put).toHaveBeenCalledWith(
+        "trade:kill_switch",
+        "true"
+      );
+    });
+
+    it("releases kill switch via action", async () => {
+      const request = new Request("http://example.com/agent/risk-override", {
+        method: "POST",
+        headers: { "X-Internal-Auth-Key": TEST_KEY },
+        body: JSON.stringify({ action: "release_kill_switch" }),
+      });
+      const response = await worker.fetch(request, mockEnv, mockCtx);
+      expect(response.status).toBe(200);
+      const json: any = await response.json();
+      expect(json.applied).toContain("release_kill_switch");
+      expect(mockEnv.CONFIG_KV.put).toHaveBeenCalledWith(
+        "trade:kill_switch",
+        "false"
+      );
+    });
+
+    it("rejects vision imageUrl SSRF targets", async () => {
+      const request = new Request("http://example.com/agent/vision", {
+        method: "POST",
+        headers: { "X-Internal-Auth-Key": TEST_KEY },
+        body: JSON.stringify({
+          imageUrl: "http://127.0.0.1/secret.png",
+          prompt: "describe",
+        }),
+      });
+      const response = await worker.fetch(request, mockEnv, mockCtx);
+      expect(response.status).toBe(400);
     });
   });
 

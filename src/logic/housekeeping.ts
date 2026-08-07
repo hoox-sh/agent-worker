@@ -24,14 +24,27 @@ type ServiceCheck = {
   detail: unknown;
 };
 
+const HEALTH_CHECK_TIMEOUT_MS = 5000;
+
 async function checkServiceHealth(
   service: string,
   fetcher: Fetcher
 ): Promise<ServiceCheck> {
   try {
-    const res = await serviceFetch(fetcher, "/health", undefined, {
-      method: "GET",
-    });
+    const res = await Promise.race([
+      serviceFetch(fetcher, "/health", undefined, {
+        method: "GET",
+      }),
+      new Promise<never>((_, reject) => {
+        setTimeout(
+          () =>
+            reject(
+              new Error(`Health check timed out after ${HEALTH_CHECK_TIMEOUT_MS}ms`)
+            ),
+          HEALTH_CHECK_TIMEOUT_MS
+        );
+      }),
+    ]);
     return {
       service,
       status: res.ok ? "ok" : "error",

@@ -9,7 +9,12 @@ import {
   createProviderManager,
   type ProviderEnv,
 } from "./providers";
-import { AIRequest, AgentConfig, ProviderName } from "./types";
+import {
+  AIRequest,
+  AgentConfig,
+  PROVIDER_NAMES,
+  ProviderName,
+} from "./types";
 import { ALL_MODELS } from "./models";
 import { z } from "zod/v4";
 import { createInternalAuthMiddleware } from "@hoox-sh/hoox-shared/middleware";
@@ -35,6 +40,7 @@ import { createCronHandler } from "@hoox-sh/hoox-shared/cron-handler";
 
 import { runHousekeeping, type HousekeepingEnv } from "./logic/housekeeping";
 import { processRoutine, type RoutineEnv } from "./logic/routine";
+import { sanitizeLogMessage, isDroppedLog } from "./logic/prompt-sanitizer";
 
 const logger = createLogger({ service: "agent-worker" });
 
@@ -45,6 +51,54 @@ function getProviderManager(env: Env): ProviderManager {
   return createProviderManager(env as unknown as ProviderEnv);
 }
 
+/** Parse JSON body safely; returns null + error Response when invalid. */
+async function parseJsonBody(
+  request: Request
+): Promise<{ ok: true; data: unknown } | { ok: false; response: Response }> {
+  try {
+    return { ok: true, data: await request.json() };
+  } catch {
+    return { ok: false, response: Errors.badRequest("Invalid JSON") };
+  }
+}
+
+/**
+ * SSRF guard for vision imageUrl: https only, block private/link-local/metadata hosts.
+ */
+function isSafePublicHttpsUrl(raw: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== "https:") return false;
+  const host = url.hostname.toLowerCase();
+  if (
+    host === "localhost" ||
+    host === "metadata.google.internal" ||
+    host.endsWith(".local") ||
+    host.endsWith(".internal") ||
+    host === "0.0.0.0"
+  ) {
+    return false;
+  }
+  // IPv4 private / loopback / link-local / metadata
+  const ipv4 = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (ipv4) {
+    const [a, b] = [Number(ipv4[1]), Number(ipv4[2])];
+    if (a === 10 || a === 127 || a === 0) return false;
+    if (a === 169 && b === 254) return false;
+    if (a === 172 && b >= 16 && b <= 31) return false;
+    if (a === 192 && b === 168) return false;
+  }
+  // Basic IPv6 loopback / ULA
+  if (host === "::1" || host.startsWith("fc") || host.startsWith("fd") || host.startsWith("fe80")) {
+    return false;
+  }
+  return true;
+}
+
 const router = createRouter<Env>();
 // Cast: createInternalAuthMiddleware returns MiddlewareHandler<InternalAuthEnv>
 // but our router is typed for MiddlewareHandler<Env>. The middleware only
@@ -52,28 +106,48 @@ const router = createRouter<Env>();
 const requireAuth =
   createInternalAuthMiddleware() as unknown as MiddlewareHandler<Env>;
 
+const ProviderNameSchema = z.enum(
+  PROVIDER_NAMES as unknown as [ProviderName, ...ProviderName[]]
+);
+
 // ── Zod validation schemas (S-02 audit fix) ──
-const RiskOverrideSchema = z.object({
-  trailingStopPercent: z.number().min(0).max(100).optional(),
-});
+const RiskOverrideSchema = z
+  .object({
+    trailingStopPercent: z.number().min(0).max(1).optional(),
+    action: z
+      .enum(["engage_kill_switch", "release_kill_switch", "set_trailing_stop"])
+      .optional(),
+    reason: z.string().max(500).optional(),
+  })
+  .refine(
+    (b) =>
+      b.action !== undefined ||
+      b.trailingStopPercent !== undefined,
+    { message: "action or trailingStopPercent is required" }
+  );
 
 const AgentConfigUpdateSchema = z
   .object({
-    defaultProvider: z.string().optional(),
-    fallbackChain: z.array(z.string()).optional(),
+    defaultProvider: ProviderNameSchema.optional(),
+    fallbackChain: z.array(ProviderNameSchema).min(1).max(10).optional(),
     modelMap: z.record(z.string(), z.string()).optional(),
+    timeoutMs: z.number().int().min(1000).max(120000).optional(),
+    retryCount: z.number().int().min(0).max(5).optional(),
+    maxDailyDrawdownPercent: z.number().min(-100).max(0).optional(),
+    trailingStopPercent: z.number().min(0).max(1).optional(),
+    takeProfitPercent: z.number().min(0).max(10).optional(),
   })
   .partial();
 
 const TestModelSchema = z.object({
-  provider: z.string().optional(),
-  model: z.string().optional(),
-  prompt: z.string().optional(),
+  provider: ProviderNameSchema.optional(),
+  model: z.string().max(200).optional(),
+  prompt: z.string().max(8000).optional(),
 });
 
 const EmbeddingSchema = z.object({
   text: z.string().min(1).max(10000),
-  provider: z.string().optional(),
+  provider: ProviderNameSchema.optional(),
 });
 
 const ChatMessageSchema = z.object({
@@ -96,6 +170,17 @@ const AgentChatSchema = z
     { message: "Either messages or prompt is required" }
   );
 
+const VisionSchema = z
+  .object({
+    prompt: z.string().min(1).max(4000).optional(),
+    imageUrl: z.string().url().max(2048).optional(),
+    imageBase64: z.string().min(1).max(8_000_000).optional(),
+    model: z.string().max(200).optional(),
+  })
+  .refine((b) => Boolean(b.imageUrl || b.imageBase64), {
+    message: "imageUrl or imageBase64 is required",
+  });
+
 // --- Routes ---
 
 router.post(
@@ -117,18 +202,65 @@ router.post(
 router.post(
   "/agent/risk-override",
   async (request: Request, env: Env, _ctx: ExecutionContext) => {
-    const parsed = RiskOverrideSchema.safeParse(await request.json());
+    const raw = await parseJsonBody(request);
+    if (!raw.ok) return raw.response;
+    const parsed = RiskOverrideSchema.safeParse(raw.data);
     if (!parsed.success) return Errors.badRequest("Invalid payload");
     const body = parsed.data;
+    const applied: string[] = [];
+
+    // Kill-switch engage/release (docs: action + reason)
+    if (body.action === "engage_kill_switch") {
+      await env.CONFIG_KV.put(KVKeys.KV_TRADE_KILL_SWITCH, "true");
+      applied.push("engage_kill_switch");
+      logger.warn("Kill switch engaged via risk-override", {
+        reason: body.reason ?? "unspecified",
+      });
+    } else if (body.action === "release_kill_switch") {
+      await env.CONFIG_KV.put(KVKeys.KV_TRADE_KILL_SWITCH, "false");
+      applied.push("release_kill_switch");
+      logger.info("Kill switch released via risk-override", {
+        reason: body.reason ?? "unspecified",
+      });
+    }
+
+    // set_trailing_stop requires trailingStopPercent
+    if (
+      body.action === "set_trailing_stop" &&
+      body.trailingStopPercent === undefined
+    ) {
+      return Errors.badRequest(
+        "set_trailing_stop requires trailingStopPercent (0–1)"
+      );
+    }
     if (body.trailingStopPercent !== undefined) {
       await env.CONFIG_KV.put(
         KVKeys.KV_TRADE_TRAILING_STOP_PERCENT,
         body.trailingStopPercent.toString()
       );
+      // Also mirror into agent:config so routine reads stay consistent
+      try {
+        const pm = getProviderManager(env);
+        await pm.updateConfig({
+          trailingStopPercent: body.trailingStopPercent,
+        });
+      } catch (err: unknown) {
+        logger.warn("Failed to mirror trailingStop into agent:config", {
+          error: toError(err),
+        });
+      }
+      applied.push("trailingStopPercent");
     }
+
+    if (applied.length === 0) {
+      return Errors.badRequest("No risk override applied");
+    }
+
     return createJsonResponse({
       success: true,
       message: "Risk override applied",
+      applied,
+      reason: body.reason,
     });
   },
   [requireAuth]
@@ -169,7 +301,9 @@ router.get(
 router.post(
   "/agent/config",
   async (request: Request, env: Env, _ctx: ExecutionContext) => {
-    const parsed = AgentConfigUpdateSchema.safeParse(await request.json());
+    const raw = await parseJsonBody(request);
+    if (!raw.ok) return raw.response;
+    const parsed = AgentConfigUpdateSchema.safeParse(raw.data);
     if (!parsed.success) return Errors.badRequest("Invalid payload");
     const body = parsed.data as Partial<AgentConfig>;
     const pm = getProviderManager(env);
@@ -182,7 +316,9 @@ router.post(
 router.post(
   "/agent/test-model",
   async (request: Request, env: Env, _ctx: ExecutionContext) => {
-    const parsed = TestModelSchema.safeParse(await request.json());
+    const raw = await parseJsonBody(request);
+    if (!raw.ok) return raw.response;
+    const parsed = TestModelSchema.safeParse(raw.data);
     if (!parsed.success) return Errors.badRequest("Invalid payload");
     const body = parsed.data;
     const pm = getProviderManager(env);
@@ -242,17 +378,37 @@ router.get(
 router.post(
   "/agent/chat",
   async (request: Request, env: Env, _ctx: ExecutionContext) => {
-    const parsed = AgentChatSchema.safeParse(await request.json());
+    const raw = await parseJsonBody(request);
+    if (!raw.ok) return raw.response;
+    const parsed = AgentChatSchema.safeParse(raw.data);
     if (!parsed.success) return Errors.badRequest("Invalid payload");
     const body = parsed.data;
     const pm = getProviderManager(env);
+
+    // Sanitize user-originated content (prompt-injection markers dropped)
+    const sanitizeContent = (content: string): string => {
+      const cleaned = sanitizeLogMessage(content);
+      return isDroppedLog(cleaned)
+        ? "[content removed: potential prompt injection]"
+        : cleaned;
+    };
+
+    let messages = body.messages;
+    if (messages && messages.length > 0) {
+      messages = messages.map((m) =>
+        m.role === "user"
+          ? { ...m, content: sanitizeContent(m.content) }
+          : m
+      );
+    }
+
     const testRequest: AIRequest = {
-      messages: body.messages || [
+      messages: messages || [
         {
           role: "system",
           content: body.systemPrompt || "You are a helpful trading assistant.",
         },
-        { role: "user", content: body.prompt || "" },
+        { role: "user", content: sanitizeContent(body.prompt || "") },
       ],
       temperature: body.temperature,
       maxTokens: body.maxTokens,
@@ -276,7 +432,9 @@ router.post(
 router.post(
   "/agent/embedding",
   async (request: Request, env: Env, _ctx: ExecutionContext) => {
-    const parsed = EmbeddingSchema.safeParse(await request.json());
+    const raw = await parseJsonBody(request);
+    if (!raw.ok) return raw.response;
+    const parsed = EmbeddingSchema.safeParse(raw.data);
     if (!parsed.success) return Errors.badRequest("Invalid payload");
     const body = parsed.data;
     const pm = getProviderManager(env);
@@ -293,6 +451,111 @@ router.post(
       },
       result.success ? 200 : 502
     );
+  },
+  [requireAuth]
+);
+
+/**
+ * POST /agent/vision — analyze an image with Workers AI vision models.
+ * Accepts imageBase64 (preferred) or a public https imageUrl (SSRF-guarded).
+ */
+router.post(
+  "/agent/vision",
+  async (request: Request, env: Env, _ctx: ExecutionContext) => {
+    const raw = await parseJsonBody(request);
+    if (!raw.ok) return raw.response;
+    const parsed = VisionSchema.safeParse(raw.data);
+    if (!parsed.success) return Errors.badRequest("Invalid payload");
+    const body = parsed.data;
+
+    const model =
+      body.model || "@cf/meta/llama-3.2-11b-vision-instruct";
+    const prompt =
+      body.prompt ||
+      "Describe this image in detail. If it is a trading chart, note trends and levels.";
+
+    let dataUri: string;
+    if (body.imageBase64) {
+      const b64 = body.imageBase64.replace(/^data:image\/\w+;base64,/, "");
+      // Reject non-base64 / overly short payloads
+      if (!/^[A-Za-z0-9+/=\s]+$/.test(b64.slice(0, 200))) {
+        return Errors.badRequest("imageBase64 is not valid base64");
+      }
+      dataUri = body.imageBase64.startsWith("data:")
+        ? body.imageBase64
+        : `data:image/png;base64,${b64}`;
+    } else if (body.imageUrl) {
+      if (!isSafePublicHttpsUrl(body.imageUrl)) {
+        return Errors.badRequest(
+          "imageUrl must be a public https URL (private/metadata hosts blocked)"
+        );
+      }
+      try {
+        const imgRes = await fetch(body.imageUrl, {
+          method: "GET",
+          redirect: "error",
+          signal: AbortSignal.timeout(10000),
+          headers: { Accept: "image/*" },
+        });
+        if (!imgRes.ok) {
+          return Errors.badRequest(
+            `Failed to fetch imageUrl (HTTP ${imgRes.status})`
+          );
+        }
+        const contentType = imgRes.headers.get("content-type") || "image/png";
+        if (!contentType.startsWith("image/")) {
+          return Errors.badRequest("imageUrl did not return an image");
+        }
+        const buf = new Uint8Array(await imgRes.arrayBuffer());
+        if (buf.byteLength > 5_000_000) {
+          return Errors.badRequest("Image exceeds 5MB limit");
+        }
+        let binary = "";
+        const chunk = 0x8000;
+        for (let i = 0; i < buf.length; i += chunk) {
+          binary += String.fromCharCode(...buf.subarray(i, i + chunk));
+        }
+        dataUri = `data:${contentType};base64,${btoa(binary)}`;
+      } catch (err: unknown) {
+        logger.warn("Vision imageUrl fetch failed", { error: toError(err) });
+        return Errors.badRequest("Failed to fetch imageUrl");
+      }
+    } else {
+      return Errors.badRequest("imageUrl or imageBase64 is required");
+    }
+
+    try {
+      const aiResponse = (await env.AI.run(model as Parameters<Ai["run"]>[0], {
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: prompt },
+              { type: "image_url", image_url: { url: dataUri } },
+            ],
+          },
+        ],
+        max_tokens: 512,
+      })) as { response?: string };
+
+      return createJsonResponse({
+        success: true,
+        response: aiResponse?.response || "",
+        model,
+        provider: "workers-ai",
+      });
+    } catch (err: unknown) {
+      logger.error("Vision analysis failed", { error: toError(err) });
+      return createJsonResponse(
+        {
+          success: false,
+          error: toError(err, "Vision analysis failed"),
+          model,
+          provider: "workers-ai",
+        },
+        502
+      );
+    }
   },
   [requireAuth]
 );

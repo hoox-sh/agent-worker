@@ -3,7 +3,20 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-export type ProviderName = "workers-ai" | "openai" | "anthropic" | "google";
+export type ProviderName =
+  | "workers-ai"
+  | "openai"
+  | "anthropic"
+  | "google"
+  | "azure";
+
+export const PROVIDER_NAMES: readonly ProviderName[] = [
+  "workers-ai",
+  "openai",
+  "anthropic",
+  "google",
+  "azure",
+] as const;
 
 export type TaskType =
   | "chat"
@@ -62,12 +75,14 @@ export interface ProviderResult {
 
 export const DEFAULT_AGENT_CONFIG: AgentConfig = {
   defaultProvider: "workers-ai",
-  fallbackChain: ["workers-ai", "openai"],
+  // Full multi-provider chain (providers without keys fail fast and continue).
+  fallbackChain: ["workers-ai", "openai", "anthropic", "google", "azure"],
   modelMap: {
     "workers-ai": "@cf/meta/llama-3.1-8b-instruct",
     openai: "gpt-4o-mini-2024-07-18",
     anthropic: "claude-3-haiku-20240307",
     google: "gemini-1.5-flash-002",
+    azure: "gpt-4o-mini",
   },
   timeoutMs: 30000,
   retryCount: 3,

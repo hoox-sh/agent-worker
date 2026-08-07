@@ -165,6 +165,20 @@ export const EXTERNAL_MODELS: Record<string, ModelInfo> = {
     contextLength: 1000000,
     supportsStreaming: true,
   },
+  "gpt-4o-mini": {
+    id: "gpt-4o-mini",
+    provider: "azure",
+    taskType: "chat",
+    contextLength: 128000,
+    supportsStreaming: true,
+  },
+  "gpt-4o": {
+    id: "gpt-4o",
+    provider: "azure",
+    taskType: "chat",
+    contextLength: 128000,
+    supportsStreaming: true,
+  },
 };
 
 export const ALL_MODELS: Record<string, ModelInfo> = {

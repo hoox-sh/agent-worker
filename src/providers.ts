@@ -77,17 +77,30 @@ export class ProviderManager {
     try {
       const stored = await this.env.CONFIG_KV.get(KVKeys.KV_AGENT_CONFIG);
       if (stored) {
-        this.config = { ...DEFAULT_AGENT_CONFIG, ...JSON.parse(stored) };
+        const parsed = JSON.parse(stored) as Partial<AgentConfig>;
+        // Deep-merge modelMap so new providers (e.g. azure) keep defaults
+        this.config = {
+          ...DEFAULT_AGENT_CONFIG,
+          ...parsed,
+          modelMap: {
+            ...DEFAULT_AGENT_CONFIG.modelMap,
+            ...(parsed.modelMap || {}),
+          },
+          fallbackChain:
+            Array.isArray(parsed.fallbackChain) && parsed.fallbackChain.length > 0
+              ? parsed.fallbackChain
+              : DEFAULT_AGENT_CONFIG.fallbackChain,
+        };
       } else {
         await this.env.CONFIG_KV.put(
           KVKeys.KV_AGENT_CONFIG,
           JSON.stringify(DEFAULT_AGENT_CONFIG)
         );
-        this.config = DEFAULT_AGENT_CONFIG;
+        this.config = { ...DEFAULT_AGENT_CONFIG };
       }
     } catch (error: unknown) {
       this.logger.error("Failed to load agent config", { error });
-      this.config = DEFAULT_AGENT_CONFIG;
+      this.config = { ...DEFAULT_AGENT_CONFIG };
     }
 
     return this.config!;
@@ -95,7 +108,14 @@ export class ProviderManager {
 
   async updateConfig(updates: Partial<AgentConfig>): Promise<AgentConfig> {
     const current = await this.loadConfig();
-    const updated = { ...current, ...updates };
+    const updated: AgentConfig = {
+      ...current,
+      ...updates,
+      modelMap: {
+        ...current.modelMap,
+        ...(updates.modelMap || {}),
+      },
+    };
     await this.env.CONFIG_KV.put(
       KVKeys.KV_AGENT_CONFIG,
       JSON.stringify(updated)
@@ -161,6 +181,8 @@ export class ProviderManager {
         return this.runAnthropic(request, config);
       case "google":
         return this.runGoogle(request, config);
+      case "azure":
+        return this.runAzure(request, config);
       default:
         return {
           success: false,
@@ -249,8 +271,6 @@ export class ProviderManager {
         signal: controller.signal,
       });
 
-      clearTimeout(timeout);
-
       const data: OpenAIResponse = await res.json();
 
       if (!res.ok) {
@@ -270,13 +290,112 @@ export class ProviderManager {
         latencyMs: data._metadata?.latency,
       };
     } catch (error: unknown) {
-      clearTimeout(timeout);
       return {
         success: false,
         error: error instanceof Error ? error.message : "OpenAI request failed",
         provider: "openai",
         model,
       };
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  /**
+   * Azure OpenAI (Chat Completions). Requires:
+   * - agent:azure_api_key
+   * - agent:azure_endpoint (e.g. https://{resource}.openai.azure.com)
+   * Deployment name is taken from modelMap.azure / request.model.
+   */
+  private async runAzure(
+    request: AIRequest,
+    config: AgentConfig
+  ): Promise<ProviderResult> {
+    const deployment = request.model || config.modelMap["azure"] || "gpt-4o-mini";
+    const apiKey = await this.env.CONFIG_KV.get("agent:azure_api_key");
+    const endpointRaw = await this.env.CONFIG_KV.get("agent:azure_endpoint");
+    const timeoutMs = config.timeoutMs || 30000;
+
+    if (!apiKey || !endpointRaw) {
+      return {
+        success: false,
+        error: "Azure OpenAI API key or endpoint not configured",
+        provider: "azure",
+        model: deployment,
+      };
+    }
+
+    // SSRF: only allow https Azure OpenAI hosts
+    let endpoint: URL;
+    try {
+      endpoint = new URL(endpointRaw.replace(/\/+$/, ""));
+    } catch {
+      return {
+        success: false,
+        error: "Azure endpoint is not a valid URL",
+        provider: "azure",
+        model: deployment,
+      };
+    }
+    if (
+      endpoint.protocol !== "https:" ||
+      !endpoint.hostname.endsWith(".openai.azure.com")
+    ) {
+      return {
+        success: false,
+        error: "Azure endpoint must be https://*.openai.azure.com",
+        provider: "azure",
+        model: deployment,
+      };
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    const apiVersion = "2024-06-01";
+    const url = `${endpoint.origin}/openai/deployments/${encodeURIComponent(deployment)}/chat/completions?api-version=${apiVersion}`;
+
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "api-key": apiKey,
+        },
+        body: JSON.stringify({
+          messages: request.messages,
+          temperature: request.temperature,
+          max_tokens: request.maxTokens,
+        }),
+        signal: controller.signal,
+      });
+
+      const data: OpenAIResponse = await res.json();
+
+      if (!res.ok) {
+        return {
+          success: false,
+          error: data.error?.message || "Azure OpenAI API error",
+          provider: "azure",
+          model: deployment,
+        };
+      }
+
+      return {
+        success: true,
+        data: { response: data.choices?.[0]?.message?.content || "", model: deployment },
+        provider: "azure",
+        model: deployment,
+        latencyMs: data._metadata?.latency,
+      };
+    } catch (error: unknown) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Azure request failed",
+        provider: "azure",
+        model: deployment,
+      };
+    } finally {
+      clearTimeout(timeout);
     }
   }
 
@@ -434,17 +553,30 @@ export class ProviderManager {
     text: string,
     provider: ProviderName = "workers-ai"
   ): Promise<ProviderResult> {
-    try {
-      const model = "@cf/baai/bge-base-en-v1.5";
+    const model = "@cf/baai/bge-base-en-v1.5";
+    const config = await this.loadConfig();
+    const timeoutMs = Math.min(config.timeoutMs || 30000, 30000);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
+    try {
       if (provider === "workers-ai") {
-        const response = (await this.env.AI.run(model, {
-          text: [text],
-        })) as { data: Array<{ embedding: number[] }> };
+        const response = (await this.env.AI.run(
+          model,
+          { text: [text] },
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- workers-types AbortSignal vs DOM AbortSignal
+          { signal: controller.signal as any }
+        )) as { data: Array<{ embedding: number[] } | number[]> };
+
+        // Workers AI may return number[][] or {embedding}[]; normalize.
+        const first = response.data?.[0];
+        const embedding = Array.isArray(first)
+          ? first
+          : (first as { embedding?: number[] })?.embedding;
 
         return {
           success: true,
-          data: { response: JSON.stringify(response.data[0].embedding), model },
+          data: { response: JSON.stringify(embedding ?? first), model },
           provider: "workers-ai",
           model,
         };
@@ -463,38 +595,45 @@ export class ProviderManager {
         provider,
         model: "",
       };
+    } finally {
+      clearTimeout(timeout);
     }
   }
 
   async getProviderStatus(): Promise<
     Record<string, { healthy: boolean; latency?: number; error?: string }>
   > {
-    const status: Record<
-      string,
-      { healthy: boolean; latency?: number; error?: string }
-    > = {};
     const config = await this.loadConfig();
 
-    for (const provider of config.fallbackChain) {
-      try {
-        const start = Date.now();
-        const result = await this.runProvider(provider, {
-          messages: [{ role: "user", content: "Hi" }],
-        });
-        status[provider] = {
-          healthy: result.success,
-          latency: result.success ? Date.now() - start : undefined,
-          error: result.error,
-        };
-      } catch (error: unknown) {
-        status[provider] = {
-          healthy: false,
-          error: error instanceof Error ? error.message : String(error),
-        };
-      }
-    }
+    // Probe providers in parallel — independent latency measurements.
+    const entries = await Promise.all(
+      config.fallbackChain.map(async (provider) => {
+        try {
+          const start = Date.now();
+          const result = await this.runProvider(provider, {
+            messages: [{ role: "user", content: "Hi" }],
+          });
+          return [
+            provider,
+            {
+              healthy: result.success,
+              latency: result.success ? Date.now() - start : undefined,
+              error: result.error,
+            },
+          ] as const;
+        } catch (error: unknown) {
+          return [
+            provider,
+            {
+              healthy: false,
+              error: error instanceof Error ? error.message : String(error),
+            },
+          ] as const;
+        }
+      })
+    );
 
-    return status;
+    return Object.fromEntries(entries);
   }
 }
 

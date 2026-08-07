@@ -87,19 +87,28 @@ Redeploy after changing the schedule: `hoox deploy worker agent-worker` (or `wra
 | 1        | Workers AI (Cloudflare) | `@cf/meta/llama-3.1-8b`             | → 2       |
 | 2        | OpenAI                  | `gpt-4o`, `gpt-4o-mini`             | → 3       |
 | 3        | Anthropic               | `claude-3-haiku`, `claude-3-sonnet` | → 4       |
-| 4        | Google Gemini           | `gemini-1.5-flash`                  | Hard fail |
+| 4        | Google Gemini           | `gemini-1.5-flash`                  | → 5       |
+| 5        | Azure OpenAI            | deployment name (e.g. `gpt-4o-mini`) | Hard fail |
+
+Azure requires KV keys `agent:azure_api_key` and `agent:azure_endpoint` (`https://*.openai.azure.com` only).
 
 ### Entry Points
 
-| Trigger     | Path / Event                    | Description                          |
-| ----------- | ------------------------------- | ------------------------------------ |
-| `scheduled` | wrangler `triggers.crons`       | `runHousekeeping` + `processRoutine` |
-| `POST`      | `/agent/housekeeping`           | Manual cron trigger (from dashboard) |
-| `POST`      | `/agent/risk-override`          | Set `trailingStopPercent` in KV      |
-| `GET/POST`  | `/agent/config`                 | Read/update `AgentConfig`            |
-| `POST`      | `/agent/chat`                   | Generic AI chat completion           |
-| `POST`      | `/agent/embedding`              | Generate text embeddings             |
-| `GET`       | `/agent/health`                 | Provider health status               |
+| Trigger     | Path / Event                    | Auth | Description |
+| ----------- | ------------------------------- | ---- | ----------- |
+| `scheduled` | wrangler `triggers.crons`       | n/a  | `runHousekeeping` + `processRoutine` |
+| `POST`      | `/agent/housekeeping`           | Internal | Manual cron trigger (from dashboard) |
+| `POST`      | `/agent/risk-override`          | Internal | Kill switch + trailing stop override |
+| `GET`       | `/agent/status`                 | Internal | Health + active trailing watermarks |
+| `GET/POST`  | `/agent/config`                 | Internal | Read/update `AgentConfig` |
+| `GET`       | `/agent/models`                 | Internal | Available model catalog |
+| `POST`      | `/agent/test-model`             | Internal | Smoke-test a provider/model |
+| `POST`      | `/agent/chat`                   | Internal | AI chat completion (user text sanitized) |
+| `POST`      | `/agent/vision`                 | Internal | Vision analysis (base64 or public https URL) |
+| `POST`      | `/agent/embedding`              | Internal | Generate text embeddings |
+| `GET`       | `/agent/health`                 | Internal | Provider health status (parallel probes) |
+| `GET`       | `/health`                       | None | Liveness probe |
+| `GET`       | `/`                             | None | Banner |
 
 ### Development
 

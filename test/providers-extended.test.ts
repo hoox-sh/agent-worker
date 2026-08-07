@@ -236,3 +236,41 @@ describe("runGoogle with missing key", () => {
     expect(result.error).toContain("not configured");
   });
 });
+
+describe("runAzure with missing key or bad endpoint", () => {
+  let mockEnv: any;
+  let pm: ProviderManager;
+
+  beforeEach(() => {
+    mockEnv = {
+      AI: { run: vi.fn().mockResolvedValue({ response: "Test" }) },
+      CONFIG_KV: {
+        get: vi.fn().mockResolvedValue(null),
+        put: vi.fn().mockResolvedValue(undefined),
+      },
+    };
+    pm = createProviderManager(mockEnv);
+  });
+
+  test("returns error without API key/endpoint", async () => {
+    const result: any = await (pm as any).runProvider("azure", {
+      messages: [{ role: "user", content: "Hi" }],
+    });
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("not configured");
+  });
+
+  test("rejects non-Azure endpoints (SSRF guard)", async () => {
+    mockEnv.CONFIG_KV.get = vi.fn().mockImplementation((key: string) => {
+      if (key === "agent:azure_api_key") return Promise.resolve("key");
+      if (key === "agent:azure_endpoint")
+        return Promise.resolve("https://evil.example.com");
+      return Promise.resolve(null);
+    });
+    const result: any = await (pm as any).runProvider("azure", {
+      messages: [{ role: "user", content: "Hi" }],
+    });
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("openai.azure.com");
+  });
+});
