@@ -5,7 +5,12 @@
 
 import { toError } from "@hoox-sh/hoox-shared/errors";
 import { KVKeys } from "@hoox-sh/hoox-shared/kvKeys";
-import { serviceFetch } from "@hoox-sh/hoox-shared/service-bindings";
+import {
+  authenticatedServiceFetch,
+  serviceFetch,
+  TRADE_EXECUTE_AUTH_KEY_FIELDS,
+  resolveInternalAuthKey,
+} from "@hoox-sh/hoox-shared/service-bindings";
 import { trackAnalytics } from "@hoox-sh/hoox-shared/analytics";
 import type { Logger } from "@hoox-sh/hoox-shared/middleware";
 
@@ -16,6 +21,10 @@ export interface HousekeepingEnv {
   TRADE_SERVICE?: Fetcher;
   TELEGRAM_SERVICE?: Fetcher;
   ANALYTICS_SERVICE?: Fetcher;
+  INTERNAL_KEY_BINDING?: string;
+  TRADE_EXECUTE_KEY_BINDING?: string;
+  AGENT_INTERNAL_KEY?: string;
+  [key: string]: unknown;
 }
 
 type ServiceCheck = {
@@ -101,11 +110,57 @@ export async function runHousekeeping(
     );
     results.checks.push(...serviceChecks);
 
+    // Exchange ↔ D1 position reconciliation (mitigates waitUntil ledger lag)
+    let reconcile: unknown = null;
+    if (env.TRADE_SERVICE) {
+      if (!resolveInternalAuthKey(env, TRADE_EXECUTE_AUTH_KEY_FIELDS)) {
+        results.checks.push({
+          service: "position_reconcile",
+          status: "skipped",
+          detail: "trade execute auth key not configured",
+        });
+      } else {
+        try {
+          const res = await authenticatedServiceFetch(
+            env.TRADE_SERVICE,
+            env,
+            "/api/positions/reconcile",
+            { dryRun: false },
+            {
+              method: "POST",
+              internalKeyFields: TRADE_EXECUTE_AUTH_KEY_FIELDS,
+              timeout: 25_000,
+            }
+          );
+          const body = (await res.json().catch(() => null)) as unknown;
+          reconcile = body;
+          results.checks.push({
+            service: "position_reconcile",
+            status: res.ok ? "ok" : "error",
+            detail: res.ok
+              ? (body as { result?: { totals?: unknown } })?.result?.totals ??
+                res.status
+              : res.status,
+          });
+        } catch (error: unknown) {
+          logger.warn("Position reconcile failed during housekeeping", {
+            error: toError(error),
+          });
+          results.checks.push({
+            service: "position_reconcile",
+            status: "error",
+            detail: toError(error),
+          });
+        }
+      }
+    }
+
+    const payload = { ...results, reconcile };
     await env.CONFIG_KV.put(
       KVKeys.KV_HOUSEKEEPING_LAST_CHECK,
-      JSON.stringify(results)
+      JSON.stringify(payload)
     );
-    logger.info("Housekeeping check completed", { results });
+    logger.info("Housekeeping check completed", { results: payload });
 
     // Non-blocking analytics tracking (fire-and-forget, errors handled internally)
     void trackAnalytics(env, "/track/housekeeping", {
@@ -114,10 +169,10 @@ export async function runHousekeeping(
       healthy: results.checks.filter((c) => c.status === "ok").length,
       unhealthy: results.checks.filter((c) => c.status !== "ok").length,
     });
+
+    return payload;
   } catch (error: unknown) {
     logger.error("Housekeeping check failed", { error: toError(error) });
     throw error;
   }
-
-  return results;
 }
