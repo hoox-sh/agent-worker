@@ -135,6 +135,18 @@ describe("fetchMarkPrice", () => {
       expect.objectContaining({ signal: expect.any(AbortSignal) })
     );
   });
+
+  test("should return null when MEXC fairPrice is missing", async () => {
+    mockFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ data: {} }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      })
+    );
+
+    const result = await fetchMarkPrice("mexc", "BTCUSDT", mockLogger);
+    expect(result).toBeNull();
+  });
 });
 
 describe("sendCloseOrder", () => {
@@ -290,6 +302,25 @@ describe("sendCloseOrder", () => {
     expect(mockLogger.error).toHaveBeenCalledWith(
       "Error closing position BTCUSDT",
       expect.objectContaining({ error: "Connection refused" })
+    );
+  });
+
+  test("should log error when TRADE_SERVICE is not configured", async () => {
+    const env = {
+      AGENT_INTERNAL_KEY: "test-agent-key",
+      TRADE_SERVICE: undefined,
+    };
+    const position = {
+      exchange: "binance",
+      symbol: "BTCUSDT",
+      side: "LONG" as const,
+      size: 0.5,
+    };
+
+    await sendCloseOrder(env as any, position, mockLogger);
+
+    expect(mockLogger.error).toHaveBeenCalledWith(
+      "TRADE_SERVICE binding not configured for close order"
     );
   });
 });
