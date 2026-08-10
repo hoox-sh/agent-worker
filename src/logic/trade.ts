@@ -106,12 +106,16 @@ export async function sendCloseOrder(
       logger.error("TRADE_SERVICE binding not configured for close order");
       return;
     }
+    const idempotencyKey = `agent:close:${position.exchange}:${position.symbol}:${position.side}:${quantity}`;
     const res = await authenticatedServiceFetch(
       env.TRADE_SERVICE,
       env,
       "/webhook",
       payload,
-      { internalKey: internalKey }
+      {
+        internalKey: internalKey,
+        headers: { "Idempotency-Key": idempotencyKey },
+      }
     );
     if (!res.ok) {
       logger.error(`Failed to close position ${position.symbol}`, {
