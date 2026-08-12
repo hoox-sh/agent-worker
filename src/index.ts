@@ -35,6 +35,7 @@ import {
   corsHeaders,
   resolveCorsOptions,
   internalCorsHeaders,
+  safeWaitUntil,
 } from "@hoox-sh/hoox-shared/middleware";
 import { createCronHandler } from "@hoox-sh/hoox-shared/cron-handler";
 
@@ -576,7 +577,8 @@ const cronHandler = createCronHandler<Env>({
   name: "agent-worker",
   logger,
   handler: async (_event: ScheduledEvent, env: Env, ctx: ExecutionContext) => {
-    ctx.waitUntil(
+    safeWaitUntil(
+      ctx,
       Promise.all([
         runHousekeeping(env as unknown as HousekeepingEnv, logger).catch(
           (err) =>
@@ -589,7 +591,11 @@ const cronHandler = createCronHandler<Env>({
         }).catch((err) =>
           logger.error("processRoutine failed", { error: String(err) })
         ),
-      ])
+      ]),
+      (err) =>
+        logger.error("agent-worker cron background task failed", {
+          error: String(err),
+        })
     );
   },
 });
