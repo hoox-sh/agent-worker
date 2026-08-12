@@ -90,7 +90,27 @@ Redeploy after changing the schedule: `hoox deploy worker agent-worker` (or `wra
 | 4        | Google Gemini           | `gemini-1.5-flash`                  | → 5       |
 | 5        | Azure OpenAI            | deployment name (e.g. `gpt-4o-mini`) | Hard fail |
 
-Azure requires KV keys `agent:azure_api_key` and `agent:azure_endpoint` (`https://*.openai.azure.com` only).
+#### Provider API key resolution (env secret preferred)
+
+API keys are **not** safe in `CONFIG_KV` (dashboard write compromise can exfiltrate them). Resolve order per provider:
+
+1. **Wrangler secret / env binding** (preferred)
+2. **CONFIG_KV** fallback (backward compatible; logs a one-time warn per isolate)
+
+| Provider     | Env secret (preferred) | CONFIG_KV fallback (legacy) |
+| ------------ | ---------------------- | --------------------------- |
+| OpenAI       | `OPENAI_API_KEY`       | `agent:openai_key`          |
+| Anthropic    | `ANTHROPIC_API_KEY`    | `agent:anthropic_key`       |
+| Google       | `GOOGLE_API_KEY`       | `agent:google_key`          |
+| Azure OpenAI | `AZURE_API_KEY`        | `agent:azure_api_key`       |
+| Azure endpoint | `AZURE_ENDPOINT`     | `agent:azure_endpoint`      |
+
+```bash
+hoox secrets set agent-worker OPENAI_API_KEY
+# or: wrangler secret put OPENAI_API_KEY
+```
+
+Azure endpoint must be `https://*.openai.azure.com` only (SSRF guard). Google auth uses the `x-goog-api-key` header (key is never placed in the request URL).
 
 ### Entry Points
 

@@ -8,8 +8,15 @@
  * Run with: bun test workers/agent-worker/test/providers.test.ts
  */
 
-import { describe, expect, test, mock } from "bun:test";
-import { ProviderManager, createProviderManager } from "../src/providers";
+import { describe, expect, test, mock, beforeEach } from "bun:test";
+import {
+  ProviderManager,
+  createProviderManager,
+  resolveProviderSecret,
+  _resetKvFallbackWarnings,
+  PROVIDER_SECRET_ENV,
+  PROVIDER_SECRET_KV,
+} from "../src/providers";
 import { DEFAULT_AGENT_CONFIG, type AgentConfig } from "../src/types";
 
 /**
@@ -321,5 +328,227 @@ describe("ProviderManager", () => {
       // Should return defaults when KV is missing
       expect(config.defaultProvider).toBe("workers-ai");
     });
+  });
+});
+
+describe("resolveProviderSecret (env over CONFIG_KV)", () => {
+  beforeEach(() => {
+    _resetKvFallbackWarnings();
+  });
+
+  test("prefers non-empty env secret over CONFIG_KV", async () => {
+    const env = createMockEnv({ OPENAI_API_KEY: "sk-from-env" });
+    await env.CONFIG_KV.put(PROVIDER_SECRET_KV.openai, "sk-from-kv");
+
+    const value = await resolveProviderSecret(env, {
+      envKey: PROVIDER_SECRET_ENV.openai,
+      kvKey: PROVIDER_SECRET_KV.openai,
+      label: "openai",
+    });
+
+    expect(value).toBe("sk-from-env");
+    // KV should not be read when env is present
+    expect(env.CONFIG_KV.get).not.toHaveBeenCalledWith(
+      PROVIDER_SECRET_KV.openai
+    );
+  });
+
+  test("falls back to CONFIG_KV when env secret is missing", async () => {
+    const env = createMockEnv();
+    await env.CONFIG_KV.put(PROVIDER_SECRET_KV.openai, "sk-from-kv");
+
+    const value = await resolveProviderSecret(env, {
+      envKey: PROVIDER_SECRET_ENV.openai,
+      kvKey: PROVIDER_SECRET_KV.openai,
+      label: "openai",
+    });
+
+    expect(value).toBe("sk-from-kv");
+  });
+
+  test("treats empty/whitespace env as missing and falls back to KV", async () => {
+    const env = createMockEnv({ OPENAI_API_KEY: "   " });
+    await env.CONFIG_KV.put(PROVIDER_SECRET_KV.openai, "sk-from-kv");
+
+    const value = await resolveProviderSecret(env, {
+      envKey: PROVIDER_SECRET_ENV.openai,
+      kvKey: PROVIDER_SECRET_KV.openai,
+      label: "openai",
+    });
+
+    expect(value).toBe("sk-from-kv");
+  });
+
+  test("returns null when neither env nor KV has a value", async () => {
+    const env = createMockEnv();
+
+    const value = await resolveProviderSecret(env, {
+      envKey: PROVIDER_SECRET_ENV.anthropic,
+      kvKey: PROVIDER_SECRET_KV.anthropic,
+      label: "anthropic",
+    });
+
+    expect(value).toBeNull();
+  });
+
+  test("warns once when falling back to KV (not on every resolve)", async () => {
+    const env = createMockEnv();
+    await env.CONFIG_KV.put(PROVIDER_SECRET_KV.google, "gkey");
+    const warn = mock(() => {});
+
+    const opts = {
+      envKey: PROVIDER_SECRET_ENV.google,
+      kvKey: PROVIDER_SECRET_KV.google,
+      label: "google-warn-test",
+      logger: { warn },
+    };
+
+    await resolveProviderSecret(env, opts);
+    await resolveProviderSecret(env, opts);
+    await resolveProviderSecret(env, opts);
+
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][0]).toContain("CONFIG_KV");
+  });
+
+  test("trims whitespace from resolved secrets", async () => {
+    const env = createMockEnv({ ANTHROPIC_API_KEY: "  sk-env  " });
+
+    const value = await resolveProviderSecret(env, {
+      envKey: PROVIDER_SECRET_ENV.anthropic,
+      kvKey: PROVIDER_SECRET_KV.anthropic,
+      label: "anthropic",
+    });
+
+    expect(value).toBe("sk-env");
+  });
+
+  test("handles missing CONFIG_KV without throwing", async () => {
+    const env = { AI: {}, CONFIG_KV: undefined } as any;
+
+    const value = await resolveProviderSecret(env, {
+      envKey: PROVIDER_SECRET_ENV.openai,
+      kvKey: PROVIDER_SECRET_KV.openai,
+      label: "openai",
+    });
+
+    expect(value).toBeNull();
+  });
+});
+
+describe("provider run uses env secret before KV", () => {
+  beforeEach(() => {
+    _resetKvFallbackWarnings();
+  });
+
+  test("runOpenAI uses OPENAI_API_KEY env and does not read KV key", async () => {
+    const env = createMockEnv({ OPENAI_API_KEY: "sk-env-openai" });
+    await env.CONFIG_KV.put(PROVIDER_SECRET_KV.openai, "sk-kv-openai");
+
+    globalThis.fetch = mock(() =>
+      Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            choices: [{ message: { content: "from-openai" } }],
+          }),
+      })
+    ) as any;
+
+    const pm = createProviderManager(env);
+    const result = await (pm as any).runProvider("openai", {
+      messages: [{ role: "user", content: "Hi" }],
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.data?.response).toBe("from-openai");
+    expect(env.CONFIG_KV.get).not.toHaveBeenCalledWith(
+      PROVIDER_SECRET_KV.openai
+    );
+
+    const fetchCall = (globalThis.fetch as any).mock.calls[0];
+    expect(fetchCall[1].headers.Authorization).toBe("Bearer sk-env-openai");
+  });
+
+  test("runOpenAI falls back to agent:openai_key when env unset", async () => {
+    const env = createMockEnv();
+    await env.CONFIG_KV.put(PROVIDER_SECRET_KV.openai, "sk-kv-only");
+
+    globalThis.fetch = mock(() =>
+      Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            choices: [{ message: { content: "kv-path" } }],
+          }),
+      })
+    ) as any;
+
+    const pm = createProviderManager(env);
+    const result = await (pm as any).runProvider("openai", {
+      messages: [{ role: "user", content: "Hi" }],
+    });
+
+    expect(result.success).toBe(true);
+    const fetchCall = (globalThis.fetch as any).mock.calls[0];
+    expect(fetchCall[1].headers.Authorization).toBe("Bearer sk-kv-only");
+  });
+
+  test("runGoogle sends x-goog-api-key header, not query param", async () => {
+    const env = createMockEnv({ GOOGLE_API_KEY: "g-secret" });
+
+    globalThis.fetch = mock(() =>
+      Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            candidates: [{ content: { parts: [{ text: "gemini" }] } }],
+          }),
+      })
+    ) as any;
+
+    const pm = createProviderManager(env);
+    const result = await (pm as any).runProvider("google", {
+      messages: [{ role: "user", content: "Hi" }],
+    });
+
+    expect(result.success).toBe(true);
+    const [url, init] = (globalThis.fetch as any).mock.calls[0];
+    expect(String(url)).not.toContain("key=");
+    expect(String(url)).not.toContain("g-secret");
+    expect(init.headers["x-goog-api-key"]).toBe("g-secret");
+  });
+
+  test("runAzure prefers AZURE_API_KEY and AZURE_ENDPOINT env", async () => {
+    const env = createMockEnv({
+      AZURE_API_KEY: "azure-env-key",
+      AZURE_ENDPOINT: "https://myres.openai.azure.com",
+    });
+    await env.CONFIG_KV.put(PROVIDER_SECRET_KV.azure, "azure-kv-key");
+    await env.CONFIG_KV.put(
+      PROVIDER_SECRET_KV.azureEndpoint,
+      "https://kv.openai.azure.com"
+    );
+
+    globalThis.fetch = mock(() =>
+      Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            choices: [{ message: { content: "azure-ok" } }],
+          }),
+      })
+    ) as any;
+
+    const pm = createProviderManager(env);
+    const result = await (pm as any).runProvider("azure", {
+      messages: [{ role: "user", content: "Hi" }],
+    });
+
+    expect(result.success).toBe(true);
+    const [url, init] = (globalThis.fetch as any).mock.calls[0];
+    expect(String(url)).toContain("myres.openai.azure.com");
+    expect(String(url)).not.toContain("kv.openai.azure.com");
+    expect(init.headers["api-key"]).toBe("azure-env-key");
   });
 });

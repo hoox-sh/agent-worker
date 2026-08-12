@@ -58,7 +58,17 @@
   "ai": {
     "binding": "AI"
   }
-  // Secrets (INTERNAL_KEY_BINDING, AGENT_INTERNAL_KEY, etc.) are set via:
-  //   wrangler secret put INTERNAL_KEY_BINDING
-  // or: hoox secrets set agent-worker INTERNAL_KEY_BINDING
+  // Secrets are set via wrangler / hoox CLI (never via dashboard CONFIG_KV for API keys):
+  //   wrangler secret put OPENAI_API_KEY
+  //   wrangler secret put ANTHROPIC_API_KEY
+  //   wrangler secret put GOOGLE_API_KEY
+  //   wrangler secret put AZURE_API_KEY
+  //   wrangler secret put AZURE_ENDPOINT
+  //   wrangler secret put AGENT_INTERNAL_KEY
+  // or: hoox secrets set agent-worker OPENAI_API_KEY
+  //
+  // Provider key resolution order (per provider):
+  //   1. env secret binding (above) — preferred, not readable via dashboard KV
+  //   2. CONFIG_KV fallback (agent:openai_key, agent:anthropic_key, agent:google_key,
+  //      agent:azure_api_key, agent:azure_endpoint) — backward compatible; warns once
 }

@@ -43,9 +43,95 @@ interface GoogleResponse {
   _metadata?: { latency?: number };
 }
 
+/**
+ * Wrangler secret / env binding names for AI provider credentials.
+ * Prefer these over CONFIG_KV (dashboard write compromise can exfiltrate KV).
+ *
+ * Set via:
+ *   wrangler secret put OPENAI_API_KEY
+ *   hoox secrets set agent-worker OPENAI_API_KEY
+ */
+export const PROVIDER_SECRET_ENV = {
+  openai: "OPENAI_API_KEY",
+  anthropic: "ANTHROPIC_API_KEY",
+  google: "GOOGLE_API_KEY",
+  azure: "AZURE_API_KEY",
+  azureEndpoint: "AZURE_ENDPOINT",
+} as const;
+
+/** CONFIG_KV key names used as backward-compatible fallback for secrets. */
+export const PROVIDER_SECRET_KV = {
+  openai: KVKeys.KV_AGENT_OPENAI_KEY,
+  anthropic: KVKeys.KV_AGENT_ANTHROPIC_KEY,
+  google: KVKeys.KV_AGENT_GOOGLE_KEY,
+  azure: "agent:azure_api_key",
+  azureEndpoint: "agent:azure_endpoint",
+} as const;
+
 export interface ProviderEnv {
   CONFIG_KV: KVNamespace;
   AI: Ai;
+  /** Preferred: wrangler secret bindings (not readable via dashboard KV). */
+  OPENAI_API_KEY?: string;
+  ANTHROPIC_API_KEY?: string;
+  GOOGLE_API_KEY?: string;
+  AZURE_API_KEY?: string;
+  /** Non-secret but sensitive; prefer env over KV for the same reason. */
+  AZURE_ENDPOINT?: string;
+}
+
+/** Module-lifetime set: warn once per secret label when falling back to KV. */
+const kvFallbackWarned = new Set<string>();
+
+/** @internal Reset warn-once state (unit tests only). */
+export function _resetKvFallbackWarnings(): void {
+  kvFallbackWarned.clear();
+}
+
+/**
+ * Resolve a provider credential: env secret binding first, then CONFIG_KV.
+ * Logs a single warn per isolate when the KV fallback is used.
+ */
+export async function resolveProviderSecret(
+  env: ProviderEnv,
+  options: {
+    envKey: string;
+    kvKey: string;
+    label: string;
+    logger?: { warn: (msg: string, meta?: Record<string, unknown>) => void };
+  }
+): Promise<string | null> {
+  const envRecord = env as unknown as Record<string, unknown>;
+  const fromEnv = envRecord[options.envKey];
+  if (typeof fromEnv === "string" && fromEnv.trim().length > 0) {
+    return fromEnv.trim();
+  }
+
+  let fromKv: string | null = null;
+  try {
+    fromKv = env.CONFIG_KV
+      ? await env.CONFIG_KV.get(options.kvKey)
+      : null;
+  } catch {
+    fromKv = null;
+  }
+
+  if (fromKv && fromKv.trim().length > 0) {
+    if (!kvFallbackWarned.has(options.label)) {
+      kvFallbackWarned.add(options.label);
+      options.logger?.warn(
+        "Provider secret resolved from CONFIG_KV; prefer wrangler secret binding to avoid dashboard KV exfiltration",
+        {
+          provider: options.label,
+          envKey: options.envKey,
+          kvKey: options.kvKey,
+        }
+      );
+    }
+    return fromKv.trim();
+  }
+
+  return null;
 }
 
 export class ProviderManager {
@@ -59,6 +145,20 @@ export class ProviderManager {
 
   constructor(env: ProviderEnv) {
     this.env = env;
+  }
+
+  /** Env secret first, then CONFIG_KV (backward compatible). */
+  private resolveSecret(
+    envKey: string,
+    kvKey: string,
+    label: string
+  ): Promise<string | null> {
+    return resolveProviderSecret(this.env, {
+      envKey,
+      kvKey,
+      label,
+      logger: this.logger,
+    });
   }
 
   async loadConfig(): Promise<AgentConfig> {
@@ -237,7 +337,11 @@ export class ProviderManager {
     config: AgentConfig
   ): Promise<ProviderResult> {
     const model = request.model || config.modelMap["openai"];
-    const apiKey = await this.env.CONFIG_KV.get(KVKeys.KV_AGENT_OPENAI_KEY);
+    const apiKey = await this.resolveSecret(
+      PROVIDER_SECRET_ENV.openai,
+      PROVIDER_SECRET_KV.openai,
+      "openai"
+    );
     const baseUrl =
       (await this.env.AI.gateway?.("aig").getUrl?.("openai")) ||
       "https://api.openai.com/v1";
@@ -303,8 +407,9 @@ export class ProviderManager {
 
   /**
    * Azure OpenAI (Chat Completions). Requires:
-   * - agent:azure_api_key
-   * - agent:azure_endpoint (e.g. https://{resource}.openai.azure.com)
+   * - AZURE_API_KEY (preferred) or KV agent:azure_api_key
+   * - AZURE_ENDPOINT (preferred) or KV agent:azure_endpoint
+   *   (e.g. https://{resource}.openai.azure.com)
    * Deployment name is taken from modelMap.azure / request.model.
    */
   private async runAzure(
@@ -312,10 +417,18 @@ export class ProviderManager {
     config: AgentConfig
   ): Promise<ProviderResult> {
     const deployment = request.model || config.modelMap["azure"] || "gpt-4o-mini";
-    // Parallel KV reads — independent secrets/config keys
+    // Parallel resolution — independent secrets/config keys
     const [apiKey, endpointRaw] = await Promise.all([
-      this.env.CONFIG_KV.get("agent:azure_api_key"),
-      this.env.CONFIG_KV.get("agent:azure_endpoint"),
+      this.resolveSecret(
+        PROVIDER_SECRET_ENV.azure,
+        PROVIDER_SECRET_KV.azure,
+        "azure"
+      ),
+      this.resolveSecret(
+        PROVIDER_SECRET_ENV.azureEndpoint,
+        PROVIDER_SECRET_KV.azureEndpoint,
+        "azure-endpoint"
+      ),
     ]);
     const timeoutMs = config.timeoutMs || 30000;
 
@@ -407,7 +520,11 @@ export class ProviderManager {
     config: AgentConfig
   ): Promise<ProviderResult> {
     const model = request.model || config.modelMap["anthropic"];
-    const apiKey = await this.env.CONFIG_KV.get(KVKeys.KV_AGENT_ANTHROPIC_KEY);
+    const apiKey = await this.resolveSecret(
+      PROVIDER_SECRET_ENV.anthropic,
+      PROVIDER_SECRET_KV.anthropic,
+      "anthropic"
+    );
     const timeoutMs = config.timeoutMs || 30000;
 
     if (!apiKey) {
@@ -484,7 +601,11 @@ export class ProviderManager {
     config: AgentConfig
   ): Promise<ProviderResult> {
     const model = request.model || config.modelMap["google"];
-    const apiKey = await this.env.CONFIG_KV.get(KVKeys.KV_AGENT_GOOGLE_KEY);
+    const apiKey = await this.resolveSecret(
+      PROVIDER_SECRET_ENV.google,
+      PROVIDER_SECRET_KV.google,
+      "google"
+    );
     const timeoutMs = config.timeoutMs || 30000;
 
     if (!apiKey) {
@@ -504,9 +625,13 @@ export class ProviderManager {
         (await this.env.AI.gateway?.("aig").getUrl?.("google")) ||
         "https://generativelanguage.googleapis.com/v1beta";
 
-      const res = await fetch(`${baseUrl}/generateContent?key=${apiKey}`, {
+      // Prefer x-goog-api-key header over ?key= query (avoids key in URL / logs).
+      const res = await fetch(`${baseUrl}/generateContent`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": apiKey,
+        },
         body: JSON.stringify({
           contents: [
             { parts: request.messages.map((m) => ({ text: m.content })) },

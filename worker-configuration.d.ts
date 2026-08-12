@@ -18,6 +18,12 @@ interface __BaseEnv_Env {
   AGENT_INTERNAL_KEY: string;
   WALLET_MNEMONIC_SECRET: string;
   WALLET_PK_SECRET: string;
+  /** Prefer wrangler secrets over CONFIG_KV for provider API keys. */
+  OPENAI_API_KEY?: string;
+  ANTHROPIC_API_KEY?: string;
+  GOOGLE_API_KEY?: string;
+  AZURE_API_KEY?: string;
+  AZURE_ENDPOINT?: string;
   D1_SERVICE: Fetcher /* d1-worker */;
   TRADE_SERVICE: Fetcher /* trade-worker */;
   TELEGRAM_SERVICE: Fetcher /* telegram-worker */;
@@ -48,6 +54,11 @@ declare namespace NodeJS {
       | "AGENT_INTERNAL_KEY"
       | "WALLET_MNEMONIC_SECRET"
       | "WALLET_PK_SECRET"
+      | "OPENAI_API_KEY"
+      | "ANTHROPIC_API_KEY"
+      | "GOOGLE_API_KEY"
+      | "AZURE_API_KEY"
+      | "AZURE_ENDPOINT"
     >
   > {}
 }
