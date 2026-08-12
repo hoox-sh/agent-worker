@@ -183,7 +183,7 @@ export async function processRoutine(
     );
     const markPriceMap = new Map<number, number | null>();
     openPositions.forEach((pos, i) => {
-      markPriceMap.set(i, markPriceResults[i]);
+      markPriceMap.set(i, markPriceResults[i] ?? null);
     });
 
     // Batch watermark + TP KV reads in one parallel round
@@ -209,6 +209,7 @@ export async function processRoutine(
     // Process positions sequentially for state-dependent writes
     for (let i = 0; i < openPositions.length; i++) {
       const position = openPositions[i];
+      if (!position) continue;
       logger.info(
         `Analyzing position: ${position.symbol} (${position.side}) - Quantity: ${position.size}`
       );

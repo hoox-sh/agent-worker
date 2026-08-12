@@ -161,7 +161,7 @@ export class ProviderManager {
     return {
       success: false,
       error: `All providers failed. Last error: ${lastError}`,
-      provider: chain[0],
+      provider: chain[0] ?? "workers-ai",
       model: "",
     };
   }
@@ -208,8 +208,8 @@ export class ProviderManager {
         {
           messages: request.messages,
         },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- workers-types AbortSignal vs DOM AbortSignal incompatibility
-        { signal: controller.signal as any }
+        // Workers AI options typing lags DOM AbortSignal; narrow without `any`.
+        { signal: controller.signal as AbortSignal }
       )) as WorkersAIResponse;
 
       clearTimeout(timeout);
@@ -567,8 +567,7 @@ export class ProviderManager {
         const response = (await this.env.AI.run(
           model,
           { text: [text] },
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- workers-types AbortSignal vs DOM AbortSignal
-          { signal: controller.signal as any }
+          { signal: controller.signal as AbortSignal }
         )) as { data: Array<{ embedding: number[] } | number[]> };
 
         // Workers AI may return number[][] or {embedding}[]; normalize.
