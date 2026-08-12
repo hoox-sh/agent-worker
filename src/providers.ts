@@ -312,8 +312,11 @@ export class ProviderManager {
     config: AgentConfig
   ): Promise<ProviderResult> {
     const deployment = request.model || config.modelMap["azure"] || "gpt-4o-mini";
-    const apiKey = await this.env.CONFIG_KV.get("agent:azure_api_key");
-    const endpointRaw = await this.env.CONFIG_KV.get("agent:azure_endpoint");
+    // Parallel KV reads — independent secrets/config keys
+    const [apiKey, endpointRaw] = await Promise.all([
+      this.env.CONFIG_KV.get("agent:azure_api_key"),
+      this.env.CONFIG_KV.get("agent:azure_endpoint"),
+    ]);
     const timeoutMs = config.timeoutMs || 30000;
 
     if (!apiKey || !endpointRaw) {
