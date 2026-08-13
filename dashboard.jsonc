@@ -54,7 +54,7 @@
       "icon": "cpu",
       "priority": 30,
       "fields": {
-        "workers_ai_model": "@cf/meta/llama-3.1-8b-instruct",
+        "workers_ai_model": "@cf/meta/llama-3.1-8b-instruct-fp8",
         "openai_model": "gpt-4o-mini-2024-07-18",
         "anthropic_model": "claude-3-haiku-20240307",
         "google_model": "gemini-1.5-flash-002",
@@ -67,7 +67,7 @@
       },
       "options": {
         "workers_ai_model": [
-          "@cf/meta/llama-3.1-8b-instruct",
+          "@cf/meta/llama-3.1-8b-instruct-fp8",
           "@cf/meta/llama-3.2-11b-vision-instruct",
           "@cf/deepseek-ai/deepseek-r1-distill-qwen-32b",
           "@cf/qwen/qwen2.5-coder-32b-instruct"

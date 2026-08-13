@@ -156,7 +156,7 @@ describe("Agent Worker", () => {
             JSON.stringify({
               defaultProvider: "workers-ai",
               fallbackChain: ["workers-ai"],
-              modelMap: { "workers-ai": "@cf/meta/llama-3.1-8b-instruct" },
+              modelMap: { "workers-ai": "@cf/meta/llama-3.1-8b-instruct-fp8" },
               trailingStopPercent: 0.05,
               takeProfitPercent: 0.1,
             })
@@ -201,14 +201,14 @@ describe("Agent Worker", () => {
         headers: { "X-Internal-Auth-Key": TEST_KEY },
         body: JSON.stringify({
           prompt: "Say hello",
-          model: "@cf/meta/llama-3.1-8b-instruct",
+          model: "@cf/meta/llama-3.1-8b-instruct-fp8",
         }),
       });
       const response = await worker.fetch(request, mockEnv, mockCtx);
       expect(response.status).toBe(200);
       const json: any = await response.json();
       expect(json.success).toBe(true);
-      expect(json.model).toBe("@cf/meta/llama-3.1-8b-instruct");
+      expect(json.model).toBe("@cf/meta/llama-3.1-8b-instruct-fp8");
     });
   });
 

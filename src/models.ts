@@ -5,9 +5,27 @@
 
 import { ModelInfo, ProviderName, TaskType } from "./types";
 
+/**
+ * Workers AI models deprecated by Cloudflare → current drop-in.
+ * CONFIG_KV agent:config may still store the old id; remap before AI.run.
+ * @see https://developers.cloudflare.com/workers-ai/models/
+ */
+export const DEPRECATED_CF_MODEL_ALIASES: Readonly<Record<string, string>> = {
+  // Deprecated 2026-05-30 (error 5028 / "infire-llama" catalog string)
+  "@cf/meta/llama-3.1-8b-instruct": "@cf/meta/llama-3.1-8b-instruct-fp8",
+};
+
+/** Resolve a model id, rewriting known deprecated Workers AI models. */
+export function resolveCfModelId(modelId: string): string {
+  return DEPRECATED_CF_MODEL_ALIASES[modelId] ?? modelId;
+}
+
+export const DEFAULT_WORKERS_AI_CHAT_MODEL =
+  "@cf/meta/llama-3.1-8b-instruct-fp8" as const;
+
 export const CF_MODELS: Record<string, ModelInfo> = {
-  "@cf/meta/llama-3.1-8b-instruct": {
-    id: "@cf/meta/llama-3.1-8b-instruct",
+  [DEFAULT_WORKERS_AI_CHAT_MODEL]: {
+    id: DEFAULT_WORKERS_AI_CHAT_MODEL,
     provider: "workers-ai",
     taskType: "chat",
     contextLength: 128000,
@@ -207,5 +225,5 @@ export function getRecommendedModel(
     const preferred = byTask.find((m) => m.provider === preferredProvider);
     if (preferred) return preferred.id;
   }
-  return byTask[0]?.id || "@cf/meta/llama-3.1-8b-instruct";
+  return byTask[0]?.id || DEFAULT_WORKERS_AI_CHAT_MODEL;
 }

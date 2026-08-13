@@ -188,7 +188,7 @@ function createMockEnv(opts: MockEnvOptions = {}) {
       pm.loadConfig = async () => ({
         defaultProvider: "workers-ai",
         fallbackChain: ["workers-ai"],
-        modelMap: { "workers-ai": "@cf/meta/llama-3.1-8b-instruct" } as never,
+        modelMap: { "workers-ai": "@cf/meta/llama-3.1-8b-instruct-fp8" } as never,
         timeoutMs: 30000,
         retryCount: 3,
         maxDailyDrawdownPercent: -5,
@@ -200,7 +200,7 @@ function createMockEnv(opts: MockEnvOptions = {}) {
         success: aiResult?.success ?? true,
         data: aiResult?.data,
         provider: "workers-ai" as const,
-        model: "@cf/meta/llama-3.1-8b-instruct",
+        model: "@cf/meta/llama-3.1-8b-instruct-fp8",
       });
       return pm as ProviderManager;
     },

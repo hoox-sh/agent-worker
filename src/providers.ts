@@ -13,6 +13,7 @@ import {
   ProviderResult,
 } from "./types";
 import { KVKeys } from "@hoox-sh/hoox-shared/kvKeys";
+import { resolveCfModelId } from "./models";
 
 /** Minimal shape of Workers AI text-generation responses we consume. */
 interface WorkersAIResponse {
@@ -297,7 +298,9 @@ export class ProviderManager {
     request: AIRequest,
     config: AgentConfig
   ): Promise<ProviderResult> {
-    const model = request.model || config.modelMap["workers-ai"];
+    const model = resolveCfModelId(
+      request.model || config.modelMap["workers-ai"]
+    );
     const timeoutMs = config.timeoutMs || 30000;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);

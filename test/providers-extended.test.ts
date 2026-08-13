@@ -102,7 +102,7 @@ describe("ProviderManager", () => {
               fallbackChain: ["workers-ai", "openai"],
               retryCount: 0,
               modelMap: {
-                "workers-ai": "@cf/meta/llama-3.1-8b-instruct",
+                "workers-ai": "@cf/meta/llama-3.1-8b-instruct-fp8",
                 openai: "gpt-4o-mini",
               },
             })

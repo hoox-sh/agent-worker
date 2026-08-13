@@ -17,8 +17,8 @@ import {
 describe("agent-worker models", () => {
   test("CF_MODELS contains expected models", () => {
     const keys = Object.keys(CF_MODELS);
-    expect(keys).toContain("@cf/meta/llama-3.1-8b-instruct");
-    expect(CF_MODELS["@cf/meta/llama-3.1-8b-instruct"].provider).toBe(
+    expect(keys).toContain("@cf/meta/llama-3.1-8b-instruct-fp8");
+    expect(CF_MODELS["@cf/meta/llama-3.1-8b-instruct-fp8"].provider).toBe(
       "workers-ai"
     );
   });
@@ -35,7 +35,7 @@ describe("agent-worker models", () => {
   });
 
   test("getModelInfo returns model details", () => {
-    const info = getModelInfo("@cf/meta/llama-3.1-8b-instruct");
+    const info = getModelInfo("@cf/meta/llama-3.1-8b-instruct-fp8");
     expect(info).toBeDefined();
     expect(info?.taskType).toBe("chat");
   });
