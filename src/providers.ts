@@ -108,11 +108,9 @@ export async function resolveProviderSecret(
     return fromEnv.trim();
   }
 
-  let fromKv: string | null = null;
+  let fromKv: string | null;
   try {
-    fromKv = env.CONFIG_KV
-      ? await env.CONFIG_KV.get(options.kvKey)
-      : null;
+    fromKv = env.CONFIG_KV ? await env.CONFIG_KV.get(options.kvKey) : null;
   } catch {
     fromKv = null;
   }
@@ -188,7 +186,8 @@ export class ProviderManager {
             ...(parsed.modelMap || {}),
           },
           fallbackChain:
-            Array.isArray(parsed.fallbackChain) && parsed.fallbackChain.length > 0
+            Array.isArray(parsed.fallbackChain) &&
+            parsed.fallbackChain.length > 0
               ? parsed.fallbackChain
               : DEFAULT_AGENT_CONFIG.fallbackChain,
         };
@@ -419,7 +418,8 @@ export class ProviderManager {
     request: AIRequest,
     config: AgentConfig
   ): Promise<ProviderResult> {
-    const deployment = request.model || config.modelMap["azure"] || "gpt-4o-mini";
+    const deployment =
+      request.model || config.modelMap["azure"] || "gpt-4o-mini";
     // Parallel resolution — independent secrets/config keys
     const [apiKey, endpointRaw] = await Promise.all([
       this.resolveSecret(
@@ -501,7 +501,10 @@ export class ProviderManager {
 
       return {
         success: true,
-        data: { response: data.choices?.[0]?.message?.content || "", model: deployment },
+        data: {
+          response: data.choices?.[0]?.message?.content || "",
+          model: deployment,
+        },
         provider: "azure",
         model: deployment,
         latencyMs: data._metadata?.latency,
