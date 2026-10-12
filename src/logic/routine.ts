@@ -5,7 +5,7 @@
 
 import { toError } from "@hoox-sh/hoox-shared/errors";
 import { KVKeys } from "@hoox-sh/hoox-shared/kvKeys";
-import { scopeKey } from "@hoox-sh/hoox-shared/tenant";
+import { scopeKey, withTenantId } from "@hoox-sh/hoox-shared/tenant";
 import {
   authenticatedServiceFetch,
   D1_READ_AUTH_KEY_FIELDS,
@@ -348,9 +348,10 @@ export async function processRoutine(
           env.TELEGRAM_SERVICE,
           env,
           "/alert",
-          {
+          // Forward the tenant for shared-upload attribution (identity when off).
+          withTenantId(env, {
             message: `🚨 EMERGENCY: Max daily drawdown reached (${pnlPercent.toFixed(2)}%). Global Kill Switch ENGAGED.`,
-          },
+          }),
           { internalKeyFields: TELEGRAM_ALERT_AUTH_KEY_FIELDS }
         );
       }
@@ -463,9 +464,9 @@ export async function processRoutine(
                   env.TELEGRAM_SERVICE,
                   env,
                   "/alert",
-                  {
+                  withTenantId(env, {
                     message: `🧠 AI System Health Update:\n${cleaned}`,
-                  },
+                  }),
                   { internalKeyFields: TELEGRAM_ALERT_AUTH_KEY_FIELDS }
                 );
               }
