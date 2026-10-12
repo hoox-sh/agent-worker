@@ -9,12 +9,7 @@ import {
   createProviderManager,
   type ProviderEnv,
 } from "./providers";
-import {
-  AIRequest,
-  AgentConfig,
-  PROVIDER_NAMES,
-  ProviderName,
-} from "./types";
+import { AIRequest, AgentConfig, PROVIDER_NAMES, ProviderName } from "./types";
 import { ALL_MODELS } from "./models";
 import { z } from "zod/v4";
 import { createInternalAuthMiddleware } from "@hoox-sh/hoox-shared/middleware";
@@ -38,6 +33,7 @@ import {
   safeWaitUntil,
 } from "@hoox-sh/hoox-shared/middleware";
 import { createCronHandler } from "@hoox-sh/hoox-shared/cron-handler";
+import { scopeKey, type TenantEnv } from "@hoox-sh/hoox-shared/tenant";
 
 import { runHousekeeping, type HousekeepingEnv } from "./logic/housekeeping";
 import { processRoutine, type RoutineEnv } from "./logic/routine";
@@ -94,7 +90,12 @@ function isSafePublicHttpsUrl(raw: string): boolean {
     if (a === 192 && b === 168) return false;
   }
   // Basic IPv6 loopback / ULA
-  if (host === "::1" || host.startsWith("fc") || host.startsWith("fd") || host.startsWith("fe80")) {
+  if (
+    host === "::1" ||
+    host.startsWith("fc") ||
+    host.startsWith("fd") ||
+    host.startsWith("fe80")
+  ) {
     return false;
   }
   return true;
@@ -121,9 +122,7 @@ const RiskOverrideSchema = z
     reason: z.string().max(500).optional(),
   })
   .refine(
-    (b) =>
-      b.action !== undefined ||
-      b.trailingStopPercent !== undefined,
+    (b) => b.action !== undefined || b.trailingStopPercent !== undefined,
     { message: "action or trailingStopPercent is required" }
   );
 
@@ -235,8 +234,10 @@ router.post(
       );
     }
     if (body.trailingStopPercent !== undefined) {
+      // Opt-in tenant isolation (identity when TENANT_MODE is off). The
+      // generated global Env carries no tenant vars, hence the narrow cast.
       await env.CONFIG_KV.put(
-        KVKeys.KV_TRADE_TRAILING_STOP_PERCENT,
+        scopeKey(env as TenantEnv, KVKeys.KV_TRADE_TRAILING_STOP_PERCENT),
         body.trailingStopPercent.toString()
       );
       // Also mirror into agent:config so routine reads stay consistent
@@ -397,9 +398,7 @@ router.post(
     let messages = body.messages;
     if (messages && messages.length > 0) {
       messages = messages.map((m) =>
-        m.role === "user"
-          ? { ...m, content: sanitizeContent(m.content) }
-          : m
+        m.role === "user" ? { ...m, content: sanitizeContent(m.content) } : m
       );
     }
 
@@ -469,8 +468,7 @@ router.post(
     if (!parsed.success) return Errors.badRequest("Invalid payload");
     const body = parsed.data;
 
-    const model =
-      body.model || "@cf/meta/llama-3.2-11b-vision-instruct";
+    const model = body.model || "@cf/meta/llama-3.2-11b-vision-instruct";
     const prompt =
       body.prompt ||
       "Describe this image in detail. If it is a trading chart, note trends and levels.";
@@ -637,8 +635,20 @@ export default {
 
 async function getActiveTrailingStops(env: Env): Promise<string[]> {
   try {
-    const stopsList = await env.CONFIG_KV.list({ prefix: "trade:watermark:" });
-    return stopsList.keys.map((k) => k.name);
+    // Tenant-scoped list prefix when TENANT_MODE is on. Callers strip the
+    // scope prefix back to canonical keys for routine matching.
+    const tenant = env as TenantEnv;
+    const prefix = scopeKey(tenant, "trade:watermark:");
+    const stopsList = await env.CONFIG_KV.list({ prefix });
+    const scopePrefix =
+      prefix === "trade:watermark:"
+        ? ""
+        : prefix.slice(0, prefix.length - "trade:watermark:".length);
+    return stopsList.keys.map((k) =>
+      scopePrefix && k.name.startsWith(scopePrefix)
+        ? k.name.slice(scopePrefix.length)
+        : k.name
+    );
   } catch (error: unknown) {
     logger.warn("Failed to list active trailing stops from KV", {
       error: toError(error),

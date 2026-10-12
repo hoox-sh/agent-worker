@@ -12,6 +12,7 @@ import {
   resolveInternalAuthKey,
 } from "@hoox-sh/hoox-shared/service-bindings";
 import { trackAnalytics } from "@hoox-sh/hoox-shared/analytics";
+import { scopeKey } from "@hoox-sh/hoox-shared/tenant";
 import type { Logger } from "@hoox-sh/hoox-shared/middleware";
 
 // --- Minimal env interface for runHousekeeping ---
@@ -24,6 +25,9 @@ export interface HousekeepingEnv {
   INTERNAL_KEY_BINDING?: string;
   TRADE_EXECUTE_KEY_BINDING?: string;
   AGENT_INTERNAL_KEY?: string;
+  /** Opt-in tenant isolation (see @hoox-sh/hoox-shared/tenant). Absent = self-host default. */
+  TENANT_ID?: string;
+  TENANT_MODE?: string;
   [key: string]: unknown;
 }
 
@@ -48,7 +52,9 @@ async function checkServiceHealth(
         setTimeout(
           () =>
             reject(
-              new Error(`Health check timed out after ${HEALTH_CHECK_TIMEOUT_MS}ms`)
+              new Error(
+                `Health check timed out after ${HEALTH_CHECK_TIMEOUT_MS}ms`
+              )
             ),
           HEALTH_CHECK_TIMEOUT_MS
         );
@@ -84,9 +90,14 @@ export async function runHousekeeping(
   };
 
   try {
-    // CONFIG_KV write/read test
-    await env.CONFIG_KV.put(KVKeys.KV_HEALTH_CHECK, new Date().toISOString());
-    const kvTest = await env.CONFIG_KV.get(KVKeys.KV_HEALTH_CHECK);
+    // CONFIG_KV write/read test (tenant-scoped marker when TENANT_MODE is on)
+    await env.CONFIG_KV.put(
+      scopeKey(env, KVKeys.KV_HEALTH_CHECK),
+      new Date().toISOString()
+    );
+    const kvTest = await env.CONFIG_KV.get(
+      scopeKey(env, KVKeys.KV_HEALTH_CHECK)
+    );
     results.checks.push({
       service: "CONFIG_KV",
       status: "ok",
@@ -138,8 +149,8 @@ export async function runHousekeeping(
             service: "position_reconcile",
             status: res.ok ? "ok" : "error",
             detail: res.ok
-              ? (body as { result?: { totals?: unknown } })?.result?.totals ??
-                res.status
+              ? ((body as { result?: { totals?: unknown } })?.result?.totals ??
+                res.status)
               : res.status,
           });
         } catch (error: unknown) {
@@ -157,7 +168,7 @@ export async function runHousekeeping(
 
     const payload = { ...results, reconcile };
     await env.CONFIG_KV.put(
-      KVKeys.KV_HOUSEKEEPING_LAST_CHECK,
+      scopeKey(env, KVKeys.KV_HOUSEKEEPING_LAST_CHECK),
       JSON.stringify(payload)
     );
     logger.info("Housekeeping check completed", { results: payload });

@@ -6,11 +6,15 @@
 import { toError } from "@hoox-sh/hoox-shared/errors";
 import { type Logger } from "@hoox-sh/hoox-shared/middleware";
 import { authenticatedServiceFetch } from "@hoox-sh/hoox-shared/service-bindings";
+import { withTenantId } from "@hoox-sh/hoox-shared/tenant";
 
 /** Minimal env shape required by sendCloseOrder. */
 interface CloseOrderEnv {
   AGENT_INTERNAL_KEY?: string;
   TRADE_SERVICE?: Fetcher;
+  /** Opt-in tenant isolation (see @hoox-sh/hoox-shared/tenant). Absent = self-host default. */
+  TENANT_ID?: string;
+  TENANT_MODE?: string;
 }
 
 /**
@@ -86,12 +90,13 @@ export async function sendCloseOrder(
 ) {
   const action = position.side === "LONG" ? "CLOSE_LONG" : "CLOSE_SHORT";
   const quantity = qtyOverride || position.size;
-  const payload = {
+  // Tenant attribution for the shared trade consumer (identity when off).
+  const payload = withTenantId(env, {
     exchange: position.exchange,
     symbol: position.symbol,
     action: action,
     quantity: quantity,
-  };
+  });
 
   try {
     logger.info("Sending close order to TRADE_SERVICE", { payload });

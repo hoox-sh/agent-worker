@@ -13,6 +13,7 @@ import {
   ProviderResult,
 } from "./types";
 import { KVKeys } from "@hoox-sh/hoox-shared/kvKeys";
+import { scopeKey } from "@hoox-sh/hoox-shared/tenant";
 import { resolveCfModelId } from "./models";
 
 /** Minimal shape of Workers AI text-generation responses we consume. */
@@ -72,6 +73,9 @@ export const PROVIDER_SECRET_KV = {
 export interface ProviderEnv {
   CONFIG_KV: KVNamespace;
   AI: Ai;
+  /** Opt-in tenant isolation (see @hoox-sh/hoox-shared/tenant). Absent = self-host default. */
+  TENANT_ID?: string;
+  TENANT_MODE?: string;
   /** Preferred: wrangler secret bindings (not readable via dashboard KV). */
   OPENAI_API_KEY?: string;
   ANTHROPIC_API_KEY?: string;
@@ -174,7 +178,10 @@ export class ProviderManager {
 
   private async _loadConfig(): Promise<AgentConfig> {
     try {
-      const stored = await this.env.CONFIG_KV.get(KVKeys.KV_AGENT_CONFIG);
+      // Opt-in tenant isolation: per-tenant agent:config (identity when off).
+      const stored = await this.env.CONFIG_KV.get(
+        scopeKey(this.env, KVKeys.KV_AGENT_CONFIG)
+      );
       if (stored) {
         const parsed = JSON.parse(stored) as Partial<AgentConfig>;
         // Deep-merge modelMap so new providers (e.g. azure) keep defaults
@@ -193,7 +200,7 @@ export class ProviderManager {
         };
       } else {
         await this.env.CONFIG_KV.put(
-          KVKeys.KV_AGENT_CONFIG,
+          scopeKey(this.env, KVKeys.KV_AGENT_CONFIG),
           JSON.stringify(DEFAULT_AGENT_CONFIG)
         );
         this.config = { ...DEFAULT_AGENT_CONFIG };
@@ -217,7 +224,7 @@ export class ProviderManager {
       },
     };
     await this.env.CONFIG_KV.put(
-      KVKeys.KV_AGENT_CONFIG,
+      scopeKey(this.env, KVKeys.KV_AGENT_CONFIG),
       JSON.stringify(updated)
     );
     this.config = updated;

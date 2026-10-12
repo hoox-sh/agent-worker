@@ -5,6 +5,7 @@
 
 import { toError } from "@hoox-sh/hoox-shared/errors";
 import { KVKeys } from "@hoox-sh/hoox-shared/kvKeys";
+import { scopeKey } from "@hoox-sh/hoox-shared/tenant";
 import {
   authenticatedServiceFetch,
   D1_READ_AUTH_KEY_FIELDS,
@@ -33,6 +34,9 @@ export interface RoutineEnv {
   INTERNAL_KEY_BINDING?: string;
   AGENT_INTERNAL_KEY?: string;
   AI?: Ai;
+  /** Opt-in tenant isolation (see @hoox-sh/hoox-shared/tenant). Absent = self-host default. */
+  TENANT_ID?: string;
+  TENANT_MODE?: string;
 }
 
 /**
@@ -61,8 +65,7 @@ export async function processRoutine(
     const pm = getProviderManager(env);
 
     type FetchOutcome =
-      | { ok: true; response: Response }
-      | { ok: false; error: unknown };
+      { ok: true; response: Response } | { ok: false; error: unknown };
 
     const toFetchOutcome = async (
       promise: Promise<Response>
@@ -186,12 +189,13 @@ export async function processRoutine(
       markPriceMap.set(i, markPriceResults[i] ?? null);
     });
 
-    // Batch watermark + TP KV reads in one parallel round
-    const watermarkKeys = openPositions.map(
-      (pos) => `trade:watermark:${pos.exchange}:${pos.symbol}:${pos.side}`
+    // Batch watermark + TP KV reads in one parallel round.
+    // Opt-in tenant isolation (identity when TENANT_MODE is off).
+    const watermarkKeys = openPositions.map((pos) =>
+      scopeKey(env, `trade:watermark:${pos.exchange}:${pos.symbol}:${pos.side}`)
     );
-    const tpKeys = openPositions.map(
-      (pos) => `trade:tp_hit:${pos.exchange}:${pos.symbol}:${pos.side}`
+    const tpKeys = openPositions.map((pos) =>
+      scopeKey(env, `trade:tp_hit:${pos.exchange}:${pos.symbol}:${pos.side}`)
     );
     const [wmResults, tpResults] = await Promise.all([
       Promise.all(watermarkKeys.map((key) => env.CONFIG_KV.get(key))),
@@ -240,7 +244,10 @@ export async function processRoutine(
           if (position.side === "SHORT" && markPrice < currentWm)
             newWm = markPrice;
 
-          const wmKey = `trade:watermark:${position.exchange}:${position.symbol}:${position.side}`;
+          const wmKey = scopeKey(
+            env,
+            `trade:watermark:${position.exchange}:${position.symbol}:${position.side}`
+          );
           if (newWm !== currentWm) {
             await env.CONFIG_KV.put(wmKey, newWm.toString());
           }
@@ -289,7 +296,10 @@ export async function processRoutine(
           if (triggerTp) {
             const alreadyScaled = tpHitMap.get(i) ?? null;
             if (!alreadyScaled) {
-              const tpKey = `trade:tp_hit:${position.exchange}:${position.symbol}:${position.side}`;
+              const tpKey = scopeKey(
+                env,
+                `trade:tp_hit:${position.exchange}:${position.symbol}:${position.side}`
+              );
               logger.info(
                 `TAKE PROFIT TRIGGERED for ${position.symbol}! Scaling out 50%.`
               );

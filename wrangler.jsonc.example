@@ -10,6 +10,7 @@
     "@hoox-sh/hoox-shared/errors": "../../packages/shared/src/errors.ts",
     "@hoox-sh/hoox-shared/middleware": "../../packages/shared/src/middleware/index.ts",
     "@hoox-sh/hoox-shared/router": "../../packages/shared/src/router.ts",
+	"@hoox-sh/hoox-shared/tenant": "../../packages/shared/src/tenant.ts",
     "@hoox-sh/hoox-shared/health": "../../packages/shared/src/health.ts",
     "@hoox-sh/hoox-shared/kvKeys": "../../packages/shared/src/kvKeys.ts",
     "@hoox-sh/hoox-shared/analytics": "../../packages/shared/src/analytics.ts",
